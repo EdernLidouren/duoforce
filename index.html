@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  index.html — Point d'entrée unique de l'application (single-page, sans bundler).
+  Responsabilités :
+    - Déclarer la langue du document (lang="fr") pour les lecteurs d'écran.
+    - Fournir le viewport mobile.
+    - Exposer les régions ARIA live (annonces accessibilité) utilisées par ui/announce.js.
+    - Fournir le conteneur racine où le routeur monte/démonte les scènes.
+    - Charger main.js comme module ESM (type="module") — aucun autre <script>.
+  Contrainte : aucune logique ici. Tout passe par les modules JS.
+-->
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duoforce</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <!--
+      Conteneur racine des scènes. Le routeur (src/router.js) y monte la scène
+      active et la démonte au changement. Ne pas écrire de contenu en dur ici.
+    -->
+    <main id="app" tabindex="-1"></main>
+
+    <!--
+      Régions ARIA live — pilotées exclusivement par ui/announce.js.
+      Elles sont visuellement masquées (.visually-hidden) mais lues par NVDA.
+        - #aria-status   : annonces non urgentes (polite)  → changements d'état, tour.
+        - #aria-alert    : annonces urgentes (assertive)   → erreurs, coups invalides.
+      role + aria-live sont redondants volontairement (meilleure compat NVDA).
+    -->
+    <div id="aria-status" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="aria-alert" class="visually-hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

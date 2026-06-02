@@ -1,0 +1,54 @@
+/*
+  css/style.css — Styles globaux.
+
+  Responsabilités :
+    - Utilitaire d'accessibilité .visually-hidden (masque visuellement tout en
+      restant lisible par les lecteurs d'écran ; utilisé par les régions ARIA live).
+    - Focus visible robuste (la navigation clavier est primordiale).
+    - Styles de base des scènes (à étoffer plus tard).
+*/
+
+:root {
+  color-scheme: light dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+/* Conteneur racine des scènes. */
+#app {
+  min-height: 100vh;
+}
+
+/*
+  Masque visuel sans masque sémantique : l'élément reste dans l'arbre
+  d'accessibilité (NVDA le lit) mais n'occupe aucun espace visible.
+  Réservé aux régions ARIA live et libellés hors-écran.
+*/
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Focus toujours visible — ne jamais supprimer sans alternative. */
+:focus-visible {
+  outline: 3px solid Highlight;
+  outline-offset: 2px;
+}
