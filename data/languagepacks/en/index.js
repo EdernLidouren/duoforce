@@ -7,8 +7,11 @@
 export default {
   menu: {
     title: 'Duoforce',
+    label: 'Main menu',
     welcome: 'Main menu. Press Enter to start a game.',
     start: 'New game',
+    options: 'Options',
+    quit: 'Quit',
   },
   game: {
     start: 'The game begins.',

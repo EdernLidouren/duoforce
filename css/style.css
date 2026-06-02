@@ -52,3 +52,37 @@ body {
   outline: 3px solid Highlight;
   outline-offset: 2px;
 }
+
+/*
+  Menus (AbstractMenu et sous-classes). Style volontairement minimal :
+  l'essentiel de l'« état actif » passe par aria-current + l'annonce vocale ;
+  le visuel n'est qu'un complément.
+*/
+.menu {
+  max-width: 30rem;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.menu__title {
+  margin: 0 0 1rem;
+  text-align: center;
+}
+
+.menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu__item {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+/* Item actif : repère visuel du curseur de menu. */
+.menu__item.is-active {
+  border-color: currentColor;
+  font-weight: bold;
+}
