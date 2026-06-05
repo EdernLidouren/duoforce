@@ -1,0 +1,15 @@
+// A hero object defines a playable character.
+// All display strings (name, description) live in language packs, keyed by id.
+{
+  id: "hero_paladium",
+
+  // Powers granted at the start of a run.
+  // Key: power id — Value: number of copies added to the deck.
+  starting_powers: {
+    "power_aerial_strike": 2,
+    "power_shield_bash": 1,
+  },
+
+  // Id of the hero's signature object, created at run start. Null if none.
+  signature: null,
+}

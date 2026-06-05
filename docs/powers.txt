@@ -1,0 +1,16 @@
+{
+  id: "power_aerial_strike",
+  type: "offensive", // "offensive" | "support" | "special"
+
+  // Declarative rules, evaluated in order. First matching condition wins.
+  // Each rule: { condition, effect, value }
+  rules: [
+    { condition: "row_top",    effect: "attack", value: 4 },
+    { condition: "row_bottom", effect: "attack", value: 0 },
+    { condition: "default",    effect: "attack", value: 2 },
+  ],
+
+  // Optional. If present, overrides rules entirely.
+  // Receives context, returns an array of { effect, value }.
+  customResolve: null,
+}

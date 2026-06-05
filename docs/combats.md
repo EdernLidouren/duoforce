@@ -1,0 +1,52 @@
+
+# Règles de combat :
+
+## Description globale :
+Un combat voit s'affronter le duo contrôlé par le joueur et un unique ennemi. Le déroulé est tour par tour et ne s'achève que par la victoire ou la défaite dujoueur. L'ennemi, contrôlé par l'ordinateur, se contente d'afficher les dégâts qu'il infligera. Si ses points de vie tombent à 0, le joueur gagne le combat. Si les points de vie du duo contrôlé par le joueur tombent à 0, le joueur perd le combat.
+
+## Interface de combat:
+Une zone affichant les statistiques de l'ennemi : Points de vie actuels sur points de vie max, attaque, défense.
+Le plateau de jeu : Une grille de 3 cases sur trois où sont placés les pouvoirs tirés ce tour.
+Une zone affichant les statistiques du duo : Points de vie actuels sur points de vie max, attaque, défense, manoeuvres, stratégies, crédit.
+Une zone affichant les side-kicks du joueur, et une zone affichant les gadgets du joueur
+Un bouton fin de tour.
+Un bouton affichant le nombre de cartes restantes dans la pioche, un bouton pour ouvrir la défausse, un bouton pour ouvrir l'exil.
+
+## Phase préparatoire :
+Au début du combat, on mélange les pouvoirs de chacun des supers du duo pour constituer un unique deck. Ce deck est mélangé. Le premier tour commence.
+
+## Déroulement d'un tour :
+Un tour commence par la distribution des pouvoirs sur le plateau. On défausse tous les pouvoirs du plateau. Puis on pioche neuf pouvoirs que l'on place sur le plateau.
+Le duo gagne des manoeuvres jusqu'à en avoir *2.
+Le duo gagne des stratégies jusqu'à en avoir *1.
+L'attaque et la défense du duo sont remises à 0.
+L'attaque et la défense ennemies sont réévaluées (elles dépendront du niveau actuel).
+
+## Résolution d'un tour :
+On active les effets des pouvoirs par ordre de lecture. Quand un pouvoir s'active, ses conditions prennent en compte le contexte actuel, c'est-à-dire que le pouvoir qui le précède sera sûrement inactif. Si des pouvoirs donnent de l'attaque ou de la défense, ces valeurs sont accumulées dans les statistiques correspondantes du duo.
+Phase du duo : On soustrait à l'attaque du duo la défense ennemie. On réduit les points de vie ennemis par le résultat. Si les points de vie ennemis sont à 0, c'est une victoire.
+Phase ennemie : Opération inverse. Si les points de vie du duo sont à 0, c'est une défaite.
+Nouveau tour.
+
+## Résolution d'un combat :
+En cas de victoire, le joueur est amené sur la prochaine scène de préparation. En cas de défaite, il est amené sur la scène de game over.
+
+## Mécaniques :
+Les valeurs numériques précédées d'une * ne sont pas hardcodées et peuvent donc être modifiées par diverses sources.
+L'ordre de lecture (activation, défausse, distribution) des pouvoirs sur le plateau est le suivant, en se référant à un clavier numérique d'ordinateur  : 789456123
+Il existe une pioche, une défausse et un exil. Un pouvoir est placé dans la défausse à la fin du tour. Si l'on veut piocher X cartes mais que la pioche n'a pas assez de pouvoirs, on la reconstitue à partir de la défausse. Si cela est toujours insuffisant, on baisse x jusqu'à la taille actuelle de la pioche.
+En fin de combat, pioche, défausse et exil ne sont pas sauvegardés.
+manoeuvres : Contre une manoeuvre, le joueur peut échanger la position d'un pouvoir sur le plateau avec un pouvoir adjacent.
+stratégie : Contre une stratégie, le joueur peut défausser un pouvoir sur le plateau, puis le remplacer par une sélection des *3 premières cartes de la pioche. Celle-ci est mélangée ensuite.
+Crédit : La monnaie du jeu, aucun effet direct en combat.
+Side-kicks : Tant qu'ils sont présents, ils apportent des effets et modifications passifs selon leur nature.
+Gadgets : Ce sont des consommables dont l'effet ne survient qu'à utilisation.
+
+  ## Lexique :
+Ciel : Désigne les trois cases composant la ligne supérieure du plateau.
+Surface : Désigne les trois cases composant la ligne au milieu du plateau.
+terre : Désigne les trois cases composant la ligne inférieure du plateau.
+Gauche : Désigne les trois cases composant la colonne gauche du plateau.
+Centre : Désigne les trois cases composant la colonne au milieu du plateau.
+Droite : Désigne les trois cases composant la colonne droite du plateau.
+Coeur : Désigne la case se trouvant au milieu du plateau.

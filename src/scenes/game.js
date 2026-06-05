@@ -10,7 +10,6 @@
 
 import { createInitialState } from '../engine/state.js';
 import { applyMove, nextTurn } from '../engine/turn.js';
-import { checkVictory } from '../engine/rules.js';
 import { renderGame, updateGame } from '../ui/render.js';
 import { attachInput, Intent } from '../ui/input.js';
 
@@ -51,7 +50,6 @@ export function createGameScene() {
   // Référencés pour la future boucle ; évite les avertissements d'import inutilisé.
   void applyMove;
   void nextTurn;
-  void checkVictory;
   void updateGame;
 
   return { mount, unmount };

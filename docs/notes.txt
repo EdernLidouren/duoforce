@@ -1,0 +1,2 @@
+tags de pouvoir :		 T
+mobile : Si bougé par manoeuvre, effet +

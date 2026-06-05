@@ -6,22 +6,22 @@
 //   - Orchestrer l'enchaînement : valider (rules) → muter logiquement (state).
 //
 // Contrainte : pur. Aucune annonce ni rendu ici — l'UI réagit au nouvel état.
-
-import { validateMove } from './rules.js';
+//
+// NOTE : ce module est un échafaudage générique antérieur au système de combat.
+// La logique réelle vit désormais dans src/engine/combat.js (resolveTurn). Ces
+// stubs restent pour ne pas casser scenes/game.js tant que la scène n'est pas
+// recâblée sur le combat.
 
 /**
- * Applique un coup à l'état courant.
+ * Applique un coup à l'état courant (stub).
  * @param {object} state
  * @param {object} move
  * @returns {{ ok: boolean, state: object, reason?: string }}
- *   ok=false renvoie l'état inchangé + la raison (coup refusé).
  */
 export function applyMove(state, move) {
-  const check = validateMove(state, move);
-  if (!check.ok) {
-    return { ok: false, state, reason: check.reason };
-  }
-  // TODO: produire le nouvel état après application du coup.
+  // TODO: produire le nouvel état après application du coup (ou supprimer ce
+  // module au profit de combat.js lors du recâblage de la scène de jeu).
+  void move;
   return { ok: true, state };
 }
 
