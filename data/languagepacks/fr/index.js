@@ -1,9 +1,13 @@
 // data/languagepacks/fr/index.js — Pack de langue : français.
 //
 // Structure commune à tous les packs (voir ../en/index.js pour l'équivalent).
-// Les clés regroupent les chaînes par scène + une section `a11y` dédiée aux
-// messages d'annonce (régions ARIA live). Garder les clés synchronisées entre
-// langues.
+// Conventions de localisation :
+//   - Pour chaque ressource, on distingue trois chaînes : `name` (nom court,
+//     ex. libellé de zone), `display` (gabarit d'annonce de la valeur courante)
+//     et `help` (phrase d'aide). Cela facilite la traduction et la réutilisation.
+//   - Les gabarits contiennent des marqueurs `{clef}` interpolés à l'exécution
+//     (voir src/ui/format.js) : textes dynamiques.
+// Garder les clés synchronisées entre langues.
 
 export default {
   menu: {
@@ -15,6 +19,7 @@ export default {
     quit: 'Quitter',
     combatTest: 'Combat test',
   },
+
   combat: {
     title: 'Combat test',
     turn: 'Tour',
@@ -23,12 +28,8 @@ export default {
     board: 'Plateau',
     actions: 'Actions',
     instructions: 'Tabulation pour changer de zone, flèches pour naviguer.',
-    hp: 'Points de vie',
     attack: 'Attaque',
     defense: 'Défense',
-    maneuvers: 'Manœuvres',
-    strategies: 'Stratégies',
-    credit: 'Crédit',
     deck: 'Pioche',
     discard: 'Défausse',
     exile: 'Exil',
@@ -43,11 +44,115 @@ export default {
     left: 'Gauche',
     center: 'Centre',
     right: 'Droite',
+    // Type de combat (interpolé dans turnAnnounce).
+    combatType: {
+      normal: 'combat',
+      boss: 'combat de boss',
+    },
+    turnAnnounce: 'Tour {turn}, {combatType} contre {enemy}.',
   },
+
+  // Ressources : nom / message d'affichage / message d'aide, distincts.
+  resources: {
+    hp: {
+      name: 'Points de vie',
+      display: '{value} sur {max} points de vie.',
+      help: 'Si les points de vie de votre duo tombent à 0, vous perdez la partie.',
+    },
+    enemyHp: {
+      name: 'Points de vie',
+      display: '{value} sur {max} points de vie.',
+      help: 'Faites tomber les points de vie adverses pour remporter ce combat.',
+    },
+    maneuver: {
+      name: 'Manœuvres',
+      display: '{value} manœuvres.',
+      help: 'Dépensez une manœuvre pour intervertir la position de deux pouvoirs adjacents.',
+    },
+    strategy: {
+      name: 'Stratégies',
+      display: '{value} stratégies.',
+      help: 'Dépensez une stratégie pour défausser un pouvoir et le remplacer en choisissant parmi les {strategy_pick} premiers pouvoirs de la pioche.',
+    },
+    credit: {
+      name: 'Crédit',
+      display: '{value} crédit.',
+      help: 'Le crédit représente la monnaie du jeu.',
+    },
+  },
+
+  // Gabarits de description des pouvoirs (interpolés).
+  power: {
+    short: '{name}, {type}, {rarity}',
+    long: '{name}, {type}, {rarity} : {description}',
+  },
+
+  // Libellés des types de pouvoir.
+  powerTypes: {
+    offensive: 'offensif',
+    support: 'soutien',
+    special: 'spécial',
+  },
+
+  // Libellés des raretés (indexés par l'entier Rarity).
+  rarities: {
+    0: 'commun',
+    1: 'peu commun',
+    2: 'rare',
+    3: 'épique',
+    4: 'légendaire',
+  },
+
+  // Nom + description de chaque pouvoir (indexés par id).
+  powers: {
+    power_aerial_strike: {
+      name: 'Frappe aérienne',
+      description: 'Inflige de lourds dégâts depuis le ciel, plus efficace en hauteur.',
+    },
+    power_shield: {
+      name: 'Bouclier',
+      description: 'Renforce la défense du duo, surtout sur le flanc gauche.',
+    },
+    power_phalanx: {
+      name: 'Phalange',
+      description: 'Gagne en défense lorsqu’elle est entourée d’autres soutiens.',
+    },
+    power_vanguard: {
+      name: 'Avant-garde',
+      description: 'Frappe plus fort à côté d’un bouclier ou dans les coins.',
+    },
+    power_disrupt: {
+      name: 'Perturbation',
+      description: 'Affaiblit l’attaque et la défense de l’ennemi.',
+    },
+    power_curse: {
+      name: 'Malédiction',
+      description: 'Manipule les statistiques ennemies, au prix de revers possibles.',
+    },
+    power_medic: {
+      name: 'Médic',
+      description: 'Soigne le duo et génère des ressources de soutien.',
+    },
+    power_tactician: {
+      name: 'Tacticien',
+      description: 'Produit des crédits et de la pioche, et manipule le plateau.',
+    },
+    power_sabotage: {
+      name: 'Sabotage',
+      description: 'Défausse ou exile les pouvoirs voisins sur le plateau.',
+    },
+  },
+
+  // Noms des ennemis (indexés par nameId).
+  enemies: {
+    enemy_dummy: 'Mannequin d’entraînement',
+  },
+
   game: {
     start: 'La partie commence.',
     yourTurn: 'À vous de jouer.',
   },
+
   gameover: {
     title: 'Partie terminée.',
     win: 'Victoire.',
@@ -55,6 +160,7 @@ export default {
     draw: 'Match nul.',
     backToMenu: 'Retour au menu',
   },
+
   a11y: {
     // Messages destinés aux régions live (à compléter).
     invalidMove: 'Coup invalide.',

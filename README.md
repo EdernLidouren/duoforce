@@ -63,3 +63,19 @@ python -m http.server 8000
 ```
 
 puis ouvrir <http://localhost:8000/> dans le navigateur.
+
+### En développement : `serve.py` (sans cache)
+
+`python -m http.server` n'envoie aucun en-tête `Cache-Control`. Pendant que vous
+éditez, le navigateur peut alors continuer à servir d'**anciennes versions** des
+modules ES (cache heuristique) — symptôme typique : une propriété récemment
+ajoutée apparaît `undefined`. Pour l'éviter, un petit serveur de dev sans cache
+est fourni :
+
+```sh
+python serve.py 8000
+```
+
+Il force `Cache-Control: no-store` ; chaque rechargement repart des fichiers à
+jour. Si vous avez déjà du cache, faites un rechargement forcé (Ctrl+F5) une fois.
+Pour un simple essai, `python -m http.server` reste suffisant.

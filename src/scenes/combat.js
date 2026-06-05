@@ -7,14 +7,14 @@
 // Accessibilité — navigation par zones (voir src/ui/zones.js) :
 //   Le conteneur a role="application" (focus mode maintenu). L'interface est
 //   découpée en quatre zones cyclables par Tab / Maj+Tab :
-//     1. Ennemi    — statistiques de l'ennemi.
-//     2. Plateau   — grille 3×3 des pouvoirs ; flèches = déplacement 2D, chaque
-//                    case est annoncée.
-//     3. Duo       — statistiques et ressources du duo.
-//     4. Actions   — numéro du tour + boutons (flèches pour choisir, Entrée pour
-//                    activer). « Fin de tour » est aussi accessible par Ctrl+E.
-//   Aucun impact visuel ni souris : la table reste affichée, les boutons restent
-//   cliquables.
+//     1. Ennemi · 2. Plateau · 3. Duo · 4. Actions (tour + boutons).
+//   Dans la zone Plateau, les flèches déplacent un curseur 2D ; chaque case est
+//   annoncée sous la forme « Ciel Gauche, <description longue du pouvoir> ».
+//
+// Raccourcis globaux (keybindings.js), valables quelle que soit la zone active :
+//   Ctrl+E fin de tour · V pv duo · Maj+V pv ennemi · M manœuvres · S stratégies
+//   · C crédit · T tour/type/ennemi · 1–9 (rangée ou pavé) description longue du
+//   pouvoir à cet emplacement.
 //
 // Le DOM est construit une seule fois (mount) puis mis à jour en place à chaque
 // tour, afin de préserver la zone active et le focus.
@@ -26,10 +26,13 @@ import {
   isOver,
   getOutcome,
 } from '../engine/combat.js';
+import { STRATEGY_PICK } from '../engine/gameState.js';
 import { HEROES } from '../data/heroes.js';
 import { DUMMY_ENEMY } from '../data/enemies.js';
-import { KEYBINDINGS, matchKeybinding } from '../ui/keybindings.js';
+import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
 import { createZoneController } from '../ui/zones.js';
+import { format } from '../ui/format.js';
+import { longDescription, powerName } from '../ui/powerText.js';
 
 /** Disposition visuelle du plateau : lignes ciel / surface / terre. */
 const BOARD_ROWS = [
@@ -70,22 +73,28 @@ export function createCombatScene() {
 
   // Références DOM stables (créées une fois, mises à jour en place).
   let appEl = null;
-  let refs = null;          // { enemy:{}, duo:{}, actions:{}, counters, board: Map }
-  let tdByIndex = null;     // index de case → <td>
+  let refs = null;
+  let tdByIndex = null;
 
   // Curseurs internes des zones.
   let boardX = 0;
   let boardY = 0;
   let actionCursor = 0;
-  let actions = [];         // [{ button, run, isEnabled }]
+  let actions = [];
 
-  function strings() {
+  // --- Accès aux chaînes -----------------------------------------------------
+
+  function combatStrings() {
     return context.strings?.combat ?? {};
   }
 
-  /** Libellés localisés avec valeurs de repli. */
+  function resource(key) {
+    return context.strings?.resources?.[key] ?? {};
+  }
+
+  /** Libellés (noms) localisés avec valeurs de repli. */
   function labels() {
-    const c = strings();
+    const c = combatStrings();
     return {
       title: c.title ?? 'Combat test',
       turn: c.turn ?? 'Tour',
@@ -93,12 +102,13 @@ export function createCombatScene() {
       duo: c.duo ?? 'Duo',
       board: c.board ?? 'Plateau',
       actions: c.actions ?? 'Actions',
-      hp: c.hp ?? 'Points de vie',
+      instructions: c.instructions ?? 'Tabulation pour changer de zone, flèches pour naviguer.',
+      hp: resource('hp').name ?? 'Points de vie',
       attack: c.attack ?? 'Attaque',
       defense: c.defense ?? 'Défense',
-      maneuvers: c.maneuvers ?? 'Manœuvres',
-      strategies: c.strategies ?? 'Stratégies',
-      credit: c.credit ?? 'Crédit',
+      maneuvers: resource('maneuver').name ?? 'Manœuvres',
+      strategies: resource('strategy').name ?? 'Stratégies',
+      credit: resource('credit').name ?? 'Crédit',
       deck: c.deck ?? 'Pioche',
       discard: c.discard ?? 'Défausse',
       exile: c.exile ?? 'Exil',
@@ -113,8 +123,11 @@ export function createCombatScene() {
       left: c.left ?? 'Gauche',
       center: c.center ?? 'Centre',
       right: c.right ?? 'Droite',
-      instructions: c.instructions ?? 'Tabulation pour changer de zone, flèches pour naviguer.',
     };
+  }
+
+  function say(message) {
+    context.announce.polite(message);
   }
 
   // --- Construction du DOM (une seule fois) ---------------------------------
@@ -122,7 +135,6 @@ export function createCombatScene() {
   function buildView() {
     const L = labels();
 
-    // Zone 1 — Ennemi.
     refs = { enemy: {}, duo: {}, actions: {} };
     const enemyZoneEl = el('section', {},
       el('h2', { textContent: L.enemy }),
@@ -131,7 +143,6 @@ export function createCombatScene() {
       (refs.enemy.defense = el('p', {})),
     );
 
-    // Zone 2 — Plateau (table conservée pour le visuel ; SR via annonces).
     tdByIndex = new Map();
     const colHeaders = [L.left, L.center, L.right];
     const rowLabel = { sky: L.sky, surface: L.surface, ground: L.ground };
@@ -162,7 +173,6 @@ export function createCombatScene() {
       ),
     );
 
-    // Zone 3 — Duo.
     const duoZoneEl = el('section', {},
       el('h2', { textContent: L.duo }),
       (refs.duo.hp = el('p', {})),
@@ -173,7 +183,6 @@ export function createCombatScene() {
       (refs.duo.credit = el('p', {})),
     );
 
-    // Zone 4 — Actions (tour + boutons).
     const endTurnBtn = el('button', { type: 'button', tabIndex: -1, textContent: L.endTurn, onclick: endTurn });
     const backBtn = el('button', { type: 'button', tabIndex: -1, textContent: L.backToMenu, onclick: () => context.router.go('menu') });
     actions = [
@@ -196,30 +205,11 @@ export function createCombatScene() {
       actionsZoneEl,
     );
 
-    // Zones du contrôleur.
     const zones = [
-      {
-        element: enemyZoneEl,
-        label: L.enemy,
-        onEnter: () => describeEnemy(),
-      },
-      {
-        element: boardZoneEl,
-        label: L.board,
-        onEnter: () => describeCell(),
-        onKey: onBoardKey,
-      },
-      {
-        element: duoZoneEl,
-        label: L.duo,
-        onEnter: () => describeDuo(),
-      },
-      {
-        element: actionsZoneEl,
-        label: L.actions,
-        onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`,
-        onKey: onActionsKey,
-      },
+      { element: enemyZoneEl, label: L.enemy, onEnter: () => describeEnemy() },
+      { element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
+      { element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
+      { element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
     ];
 
     controller = createZoneController({
@@ -251,17 +241,70 @@ export function createCombatScene() {
     return BOARD_ROWS[y].indices[x];
   }
 
-  function describeCell() {
+  function positionOf(index) {
+    for (let y = 0; y < BOARD_ROWS.length; y++) {
+      const x = BOARD_ROWS[y].indices.indexOf(index);
+      if (x >= 0) return { x, y };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  /** Annonce d'une case : « <ligne> <colonne>, <description longue | vide> ». */
+  function describeCellAt(index) {
     const L = labels();
-    const idx = boardIndexAt(boardX, boardY);
-    const power = state.board[idx];
-    const rowLabel = [L.sky, L.surface, L.ground][boardY];
-    const colLabel = [L.left, L.center, L.right][boardX];
-    return `${rowLabel} ${colLabel} : ${power ? power.id : L.empty}`;
+    const { x, y } = positionOf(index);
+    const position = `${[L.sky, L.surface, L.ground][y]} ${[L.left, L.center, L.right][x]}`;
+    const power = state.board[index];
+    if (!power) return `${position}, ${L.empty}`;
+    return `${position}, ${longDescription(power, context.strings)}`;
+  }
+
+  function describeCell() {
+    return describeCellAt(boardIndexAt(boardX, boardY));
   }
 
   function currentActionLabel() {
     return actions[actionCursor]?.button.textContent ?? '';
+  }
+
+  // --- Annonces des ressources / infos (raccourcis) -------------------------
+
+  function announceDuoHp() {
+    const r = resource('hp');
+    say(`${format(r.display ?? '{value}/{max}', { value: state.duo.hp, max: state.duo.maxHp })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceEnemyHp() {
+    const r = resource('enemyHp');
+    say(`${format(r.display ?? '{value}/{max}', { value: state.enemy.hp, max: state.enemy.maxHp })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceManeuvers() {
+    const r = resource('maneuver');
+    say(`${format(r.display ?? '{value}', { value: state.duo.maneuver })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceStrategies() {
+    const r = resource('strategy');
+    const help = format(r.help ?? '', { strategy_pick: STRATEGY_PICK });
+    say(`${format(r.display ?? '{value}', { value: state.duo.strategy })} ${help}`.trim());
+  }
+
+  function announceCredit() {
+    const r = resource('credit');
+    say(`${format(r.display ?? '{value}', { value: state.duo.credit })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceTurn() {
+    const c = combatStrings();
+    const types = c.combatType ?? {};
+    const combatType = state.enemy.isBoss ? (types.boss ?? 'combat de boss') : (types.normal ?? 'combat');
+    const enemy = context.strings?.enemies?.[state.enemy.nameId] ?? state.enemy.nameId;
+    say(format(c.turnAnnounce ?? 'Tour {turn}, {combatType} contre {enemy}.', { turn: state.turn, combatType, enemy }));
+  }
+
+  function announcePower(index) {
+    say(describeCellAt(index));
   }
 
   // --- Touches des zones -----------------------------------------------------
@@ -272,7 +315,7 @@ export function createCombatScene() {
     boardX = clamp(boardX + delta[0], 0, 2);
     boardY = clamp(boardY + delta[1], 0, 2);
     applyBoardCursor();
-    context.announce.polite(describeCell());
+    say(describeCell());
     return true;
   }
 
@@ -280,13 +323,13 @@ export function createCombatScene() {
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       actionCursor = (actionCursor + 1) % actions.length;
       applyActionCursor();
-      context.announce.polite(currentActionLabel());
+      say(currentActionLabel());
       return true;
     }
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       actionCursor = (actionCursor - 1 + actions.length) % actions.length;
       applyActionCursor();
-      context.announce.polite(currentActionLabel());
+      say(currentActionLabel());
       return true;
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -320,7 +363,7 @@ export function createCombatScene() {
 
     for (const [i, td] of tdByIndex) {
       const power = state.board[i];
-      td.textContent = power ? power.id : L.empty;
+      td.textContent = power ? powerName(power, context.strings) : L.empty;
     }
 
     refs.duo.hp.textContent = `${L.hp} : ${duo.hp}/${duo.maxHp}`;
@@ -335,7 +378,7 @@ export function createCombatScene() {
 
     const over = isOver(state);
     refs.actions.outcome.textContent = over ? (getOutcome(state) === 'won' ? L.victory : L.defeat) : '';
-    actions[0].button.disabled = over; // « Fin de tour »
+    actions[0].button.disabled = over;
 
     applyBoardCursor();
     applyActionCursor();
@@ -353,7 +396,21 @@ export function createCombatScene() {
     if (isOver(state)) {
       context.announce.assertive(getOutcome(state) === 'won' ? L.victory : L.defeat);
     } else {
-      controller.announceActive(); // réannonce la zone courante, à jour
+      controller.announceActive();
+    }
+  }
+
+  /** Aiguille un raccourci global vers l'action correspondante. */
+  function dispatchBinding(id) {
+    switch (id) {
+      case KEYBINDINGS.END_TURN.id: endTurn(); break;
+      case KEYBINDINGS.ANNOUNCE_DUO_HP.id: announceDuoHp(); break;
+      case KEYBINDINGS.ANNOUNCE_ENEMY_HP.id: announceEnemyHp(); break;
+      case KEYBINDINGS.ANNOUNCE_MANEUVERS.id: announceManeuvers(); break;
+      case KEYBINDINGS.ANNOUNCE_STRATEGIES.id: announceStrategies(); break;
+      case KEYBINDINGS.ANNOUNCE_CREDIT.id: announceCredit(); break;
+      case KEYBINDINGS.ANNOUNCE_TURN.id: announceTurn(); break;
+      default: break;
     }
   }
 
@@ -367,31 +424,36 @@ export function createCombatScene() {
         heroes: HEROES.slice(0, 2),
         enemy: {
           id: DUMMY_ENEMY.id,
+          nameId: DUMMY_ENEMY.nameId,
           hp: DUMMY_ENEMY.hp,
           maxHp: DUMMY_ENEMY.hp,
           baseAttack: DUMMY_ENEMY.attack,
           baseDefense: DUMMY_ENEMY.defense,
         },
       });
-      startTurn(state); // distribue la première main
+      startTurn(state);
 
       buildView();
       context.root.replaceChildren(appEl);
       controller.mount();
       updateView();
 
-      // Focus initial sur la zone 1, sans annonce automatique : on annonce
-      // plutôt un message d'accueil (instructions + contenu de la zone).
       const L = labels();
       controller.activate(0, { silent: true });
-      context.announce.polite(`${L.instructions} ${L.enemy}. ${describeEnemy()}`);
+      say(`${L.instructions} ${L.enemy}. ${describeEnemy()}`);
 
-      // Raccourci global Ctrl+E → fin de tour (quelle que soit la zone active).
+      // Raccourcis globaux (fin de tour + annonces + emplacements 1–9).
       onKeydown = (event) => {
         const binding = matchKeybinding(event);
-        if (binding && binding.id === KEYBINDINGS.END_TURN.id) {
+        if (binding) {
           event.preventDefault();
-          endTurn();
+          dispatchBinding(binding.id);
+          return;
+        }
+        const position = matchPositionKey(event);
+        if (position !== null) {
+          event.preventDefault();
+          announcePower(position);
         }
       };
       document.addEventListener('keydown', onKeydown);

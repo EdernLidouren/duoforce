@@ -13,6 +13,7 @@
 /** Ennemi factice pour les tests de combat. */
 export const DUMMY_ENEMY = {
   id: 'enemy_dummy',
+  nameId: 'enemy_dummy', // clé de localisation (pack `enemies`)
   hp: 24,
   attack: 6,
   defense: 2,

@@ -67,7 +67,9 @@ function createEnemy(overrides = {}) {
   const maxHp = overrides.maxHp ?? overrides.hp ?? DEFAULT_ENEMY_HP;
   return {
     id: overrides.id ?? 'enemy_dummy',
-    nameId: overrides.nameId ?? 'enemy_dummy_name',
+    nameId: overrides.nameId ?? 'enemy_dummy',
+    // Type de combat : un ennemi classique → combat normal ; un boss → true.
+    isBoss: overrides.isBoss ?? false,
     maxHp,
     hp: overrides.hp ?? maxHp,
     // Valeurs de base réévaluées chaque tour (dépendront du niveau à terme).
