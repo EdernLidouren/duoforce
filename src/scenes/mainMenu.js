@@ -22,6 +22,7 @@ export const MainMenuChoice = Object.freeze({
   NEW_GAME: 'new-game',
   OPTIONS: 'options',
   QUIT: 'quit',
+  COMBAT_TEST: 'combat-test',
 });
 
 /**
@@ -33,7 +34,18 @@ export function createMainMenuScene() {
 
   return {
     mount(context) {
-      const { root, announce, strings } = context;
+      const { root, announce, strings, debug } = context;
+
+      const items = [
+        { id: MainMenuChoice.NEW_GAME, label: strings?.menu?.start ?? 'Nouvelle partie' },
+        { id: MainMenuChoice.OPTIONS, label: strings?.menu?.options ?? 'Options' },
+        { id: MainMenuChoice.QUIT, label: strings?.menu?.quit ?? 'Quitter' },
+      ];
+
+      // Option de développement : visible uniquement quand DEBUG est actif.
+      if (debug) {
+        items.push({ id: MainMenuChoice.COMBAT_TEST, label: strings?.menu?.combatTest ?? 'Combat test' });
+      }
 
       menu = new LinearMenu({
         container: root,
@@ -41,13 +53,13 @@ export function createMainMenuScene() {
         orientation: 'vertical',
         title: strings?.menu?.title ?? 'Duoforce',
         ariaLabel: strings?.menu?.label ?? 'Menu principal',
-        items: [
-          { id: MainMenuChoice.NEW_GAME, label: strings?.menu?.start ?? 'Nouvelle partie' },
-          { id: MainMenuChoice.OPTIONS, label: strings?.menu?.options ?? 'Options' },
-          { id: MainMenuChoice.QUIT, label: strings?.menu?.quit ?? 'Quitter' },
-        ],
+        items,
         onConfirm: (item) => {
-          // Stubs : pas de logique derrière les boutons pour l'instant.
+          if (item.id === MainMenuChoice.COMBAT_TEST) {
+            context.router.go('combat');
+            return;
+          }
+          // Stubs : pas de logique derrière les autres boutons pour l'instant.
           // TODO: NEW_GAME → context.router.go('game') ; OPTIONS → scène options ; QUIT → …
           console.log('[mainMenu] choix sélectionné :', item.id);
         },

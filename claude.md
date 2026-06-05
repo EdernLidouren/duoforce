@@ -37,3 +37,7 @@ No history, no URL routing, code-driven navigation only.
 - The game runs by opening index.html directly in a browser
   or via a simple Python local server (`python -m http.server`)
 - No package.json, no node_modules, no npm/npx commands ever
+
+## Language
+- Code, comments, identifiers: English
+- Conversation with the user: always match the user's language

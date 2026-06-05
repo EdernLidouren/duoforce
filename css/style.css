@@ -86,3 +86,28 @@ body {
   border-color: currentColor;
   font-weight: bold;
 }
+
+/*
+  Combat : repères visuels des curseurs clavier (zones / plateau / actions).
+  role="application" n'a aucun effet visuel ; ces classes n'aident que la
+  navigation clavier et ne changent ni la mise en page ni l'usage souris.
+*/
+.combat td {
+  border: 1px solid currentColor;
+  padding: 0.25rem 0.5rem;
+  min-width: 6rem;
+}
+
+/* Case de plateau sous le curseur (zone « Plateau » active). */
+.combat td.is-cursor {
+  outline: 3px solid Highlight;
+  outline-offset: -3px;
+  font-weight: bold;
+}
+
+/* Bouton sous le curseur (zone « Actions » active). */
+.combat button.is-action-active {
+  outline: 3px solid Highlight;
+  outline-offset: 2px;
+  font-weight: bold;
+}
