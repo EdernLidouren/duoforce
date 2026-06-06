@@ -61,8 +61,28 @@ export default {
     },
     enemyHp: {
       name: 'Points de vie',
-      display: '{value} sur {max} points de vie.',
+      display: '{value} sur {max} adverses.',
       help: 'Faites tomber les points de vie adverses pour remporter ce combat.',
+    },
+    attack: {
+      name: 'Attaque',
+      display: '{value} attaque',
+      help: 'À la fin du tour, après activation des pouvoirs, réduit les points de vie adverses par cette valeur.',
+    },
+    enemyAttack: {
+      name: 'Attaque',
+      display: '{value} attaque adverse',
+      help: 'À la fin du tour, après l’attaque de votre duo, réduit vos points de vie par cette valeur.',
+    },
+    defense: {
+      name: 'Défense',
+      display: '{value} défense',
+      help: 'Lorsque votre duo doit subir des dégâts, c’est cette valeur qui est réduite en priorité.',
+    },
+    enemyDefense: {
+      name: 'Défense',
+      display: '{value} défense adverse',
+      help: 'Lorsque l’adversaire doit subir des dégâts, c’est cette valeur qui est réduite en priorité.',
     },
     maneuver: {
       name: 'Manœuvres',

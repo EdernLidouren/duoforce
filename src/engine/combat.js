@@ -195,6 +195,24 @@ function moveCardsFromBoard(state, positions, pile) {
 }
 
 /**
+ * Applique des dégâts à une cible. La défense absorbe en priorité :
+ *   - si défense >= dégâts : les PV restent inchangés (la défense est réduite
+ *     d'autant) ;
+ *   - sinon : la défense tombe à 0 et la différence est retirée des PV.
+ * @param {{hp:number, defense:number}} target
+ * @param {number} incoming  dégâts entrants (attaque de l'attaquant)
+ */
+function applyDamage(target, incoming) {
+  if (incoming <= 0) return;
+  if (target.defense >= incoming) {
+    target.defense -= incoming;
+  } else {
+    target.hp -= incoming - target.defense;
+    target.defense = 0;
+  }
+}
+
+/**
  * Résolution de tour : applique les effets du plateau, puis la phase du duo et
  * la phase ennemie. Met à jour le statut (victoire/défaite). Mute et renvoie l'état.
  * @param {object} state
@@ -230,18 +248,18 @@ export function resolveTurn(state) {
     extra.forEach((power, k) => { state.board[empty[k]] = power; });
   }
 
-  // Phase du duo : dégâts à l'ennemi = attaque du duo - défense ennemie.
-  const dmgToEnemy = Math.max(0, state.duo.attack - state.enemy.defense);
-  state.enemy.hp -= dmgToEnemy;
+  // Phase du duo : l'attaque du duo frappe l'ennemi ; sa défense absorbe en
+  // priorité, le surplus réduit ses PV.
+  applyDamage(state.enemy, state.duo.attack);
   if (state.enemy.hp <= 0) {
     state.enemy.hp = 0;
     state.status = 'won';
     return state;
   }
 
-  // Phase ennemie : dégâts au duo = attaque ennemie - défense du duo.
-  const dmgToDuo = Math.max(0, state.enemy.attack - state.duo.defense);
-  state.duo.hp -= dmgToDuo;
+  // Phase ennemie : l'attaque ennemie frappe le duo ; sa défense absorbe en
+  // priorité, le surplus réduit ses PV.
+  applyDamage(state.duo, state.enemy.attack);
   if (state.duo.hp <= 0) {
     state.duo.hp = 0;
     state.status = 'lost';

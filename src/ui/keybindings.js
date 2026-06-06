@@ -40,6 +40,28 @@ export const KEYBINDINGS = {
     shift: true,
     descriptionId: 'keybinding_enemy_hp',
   },
+  ANNOUNCE_DUO_ATTACK: {
+    id: 'announce_duo_attack',
+    key: 'a',
+    descriptionId: 'keybinding_duo_attack',
+  },
+  ANNOUNCE_ENEMY_ATTACK: {
+    id: 'announce_enemy_attack',
+    key: 'a',
+    shift: true,
+    descriptionId: 'keybinding_enemy_attack',
+  },
+  ANNOUNCE_DUO_DEFENSE: {
+    id: 'announce_duo_defense',
+    key: 'd',
+    descriptionId: 'keybinding_duo_defense',
+  },
+  ANNOUNCE_ENEMY_DEFENSE: {
+    id: 'announce_enemy_defense',
+    key: 'd',
+    shift: true,
+    descriptionId: 'keybinding_enemy_defense',
+  },
   ANNOUNCE_MANEUVERS: {
     id: 'announce_maneuvers',
     key: 'm',

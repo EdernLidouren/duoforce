@@ -57,8 +57,28 @@ export default {
     },
     enemyHp: {
       name: 'Hit points',
-      display: '{value} of {max} hit points.',
+      display: '{value} of {max} enemy hit points.',
       help: 'Bring the enemy’s hit points down to win this combat.',
+    },
+    attack: {
+      name: 'Attack',
+      display: '{value} attack',
+      help: 'At the end of the turn, after powers activate, reduces the enemy’s hit points by this value.',
+    },
+    enemyAttack: {
+      name: 'Attack',
+      display: '{value} enemy attack',
+      help: 'At the end of the turn, after your duo attacks, reduces your hit points by this value.',
+    },
+    defense: {
+      name: 'Defense',
+      display: '{value} defense',
+      help: 'When your duo takes damage, this value is reduced first.',
+    },
+    enemyDefense: {
+      name: 'Defense',
+      display: '{value} enemy defense',
+      help: 'When the enemy takes damage, this value is reduced first.',
     },
     maneuver: {
       name: 'Maneuvers',

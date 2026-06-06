@@ -295,6 +295,26 @@ export function createCombatScene() {
     say(`${format(r.display ?? '{value}', { value: state.duo.credit })} ${r.help ?? ''}`.trim());
   }
 
+  function announceDuoAttack() {
+    const r = resource('attack');
+    say(`${format(r.display ?? '{value}', { value: state.duo.attack })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceEnemyAttack() {
+    const r = resource('enemyAttack');
+    say(`${format(r.display ?? '{value}', { value: state.enemy.attack })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceDuoDefense() {
+    const r = resource('defense');
+    say(`${format(r.display ?? '{value}', { value: state.duo.defense })} ${r.help ?? ''}`.trim());
+  }
+
+  function announceEnemyDefense() {
+    const r = resource('enemyDefense');
+    say(`${format(r.display ?? '{value}', { value: state.enemy.defense })} ${r.help ?? ''}`.trim());
+  }
+
   function announceTurn() {
     const c = combatStrings();
     const types = c.combatType ?? {};
@@ -312,8 +332,13 @@ export function createCombatScene() {
   function onBoardKey(event) {
     const delta = ARROW_DELTAS[event.key];
     if (!delta) return false;
-    boardX = clamp(boardX + delta[0], 0, 2);
-    boardY = clamp(boardY + delta[1], 0, 2);
+    const nx = clamp(boardX + delta[0], 0, 2);
+    const ny = clamp(boardY + delta[1], 0, 2);
+    // Bord atteint : la touche est consommée (pas de défilement de page) mais
+    // rien d'autre ne se passe — aucun déplacement, aucune annonce.
+    if (nx === boardX && ny === boardY) return true;
+    boardX = nx;
+    boardY = ny;
     applyBoardCursor();
     say(describeCell());
     return true;
@@ -406,6 +431,10 @@ export function createCombatScene() {
       case KEYBINDINGS.END_TURN.id: endTurn(); break;
       case KEYBINDINGS.ANNOUNCE_DUO_HP.id: announceDuoHp(); break;
       case KEYBINDINGS.ANNOUNCE_ENEMY_HP.id: announceEnemyHp(); break;
+      case KEYBINDINGS.ANNOUNCE_DUO_ATTACK.id: announceDuoAttack(); break;
+      case KEYBINDINGS.ANNOUNCE_ENEMY_ATTACK.id: announceEnemyAttack(); break;
+      case KEYBINDINGS.ANNOUNCE_DUO_DEFENSE.id: announceDuoDefense(); break;
+      case KEYBINDINGS.ANNOUNCE_ENEMY_DEFENSE.id: announceEnemyDefense(); break;
       case KEYBINDINGS.ANNOUNCE_MANEUVERS.id: announceManeuvers(); break;
       case KEYBINDINGS.ANNOUNCE_STRATEGIES.id: announceStrategies(); break;
       case KEYBINDINGS.ANNOUNCE_CREDIT.id: announceCredit(); break;
