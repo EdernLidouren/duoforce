@@ -27,6 +27,7 @@ import {
   getOutcome,
 } from '../engine/combat.js';
 import { STRATEGY_PICK } from '../engine/gameState.js';
+import { createEstimator } from '../engine/estimator.js';
 import { HEROES } from '../data/heroes.js';
 import { DUMMY_ENEMY } from '../data/enemies.js';
 import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
@@ -70,6 +71,7 @@ export function createCombatScene() {
   let context = null;
   let controller = null;
   let onKeydown = null;
+  let estimator = null;
 
   // Références DOM stables (créées une fois, mises à jour en place).
   let appEl = null;
@@ -206,10 +208,10 @@ export function createCombatScene() {
     );
 
     const zones = [
-      { element: enemyZoneEl, label: L.enemy, onEnter: () => describeEnemy() },
-      { element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
-      { element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
-      { element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
+      { id: 'enemy', element: enemyZoneEl, label: L.enemy, onEnter: () => describeEnemy() },
+      { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
+      { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
+      { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
     ];
 
     controller = createZoneController({
@@ -217,6 +219,7 @@ export function createCombatScene() {
       announce: context.announce,
       label: L.title,
       zones,
+      defaultZone: 'board', // en entrant en combat, le focus va sur le plateau
     });
   }
 
@@ -295,24 +298,27 @@ export function createCombatScene() {
     say(`${format(r.display ?? '{value}', { value: state.duo.credit })} ${r.help ?? ''}`.trim());
   }
 
+  // a / Maj+A / d / Maj+D annoncent l'ESTIMATION (valeurs projetées à la
+  // résolution du tour), pas l'état brut (qui vaut 0 tant que le tour n'est pas
+  // résolu). Voir src/engine/estimator.js.
   function announceDuoAttack() {
     const r = resource('attack');
-    say(`${format(r.display ?? '{value}', { value: state.duo.attack })} ${r.help ?? ''}`.trim());
+    say(`${format(r.display ?? '{value}', { value: estimator.get().duo.attack })} ${r.help ?? ''}`.trim());
   }
 
   function announceEnemyAttack() {
     const r = resource('enemyAttack');
-    say(`${format(r.display ?? '{value}', { value: state.enemy.attack })} ${r.help ?? ''}`.trim());
+    say(`${format(r.display ?? '{value}', { value: estimator.get().enemy.attack })} ${r.help ?? ''}`.trim());
   }
 
   function announceDuoDefense() {
     const r = resource('defense');
-    say(`${format(r.display ?? '{value}', { value: state.duo.defense })} ${r.help ?? ''}`.trim());
+    say(`${format(r.display ?? '{value}', { value: estimator.get().duo.defense })} ${r.help ?? ''}`.trim());
   }
 
   function announceEnemyDefense() {
     const r = resource('enemyDefense');
-    say(`${format(r.display ?? '{value}', { value: state.enemy.defense })} ${r.help ?? ''}`.trim());
+    say(`${format(r.display ?? '{value}', { value: estimator.get().enemy.defense })} ${r.help ?? ''}`.trim());
   }
 
   function announceTurn() {
@@ -415,6 +421,7 @@ export function createCombatScene() {
     if (isOver(state)) return;
     resolveTurn(state);
     if (!isOver(state)) startTurn(state);
+    estimator.invalidate(); // le plateau (et l'ennemi) ont changé
     updateView();
 
     const L = labels();
@@ -462,14 +469,20 @@ export function createCombatScene() {
       });
       startTurn(state);
 
+      // Estimateur de résolution : lit le plateau / l'état de combat à la volée.
+      estimator = createEstimator({
+        getBoard: () => state.board,
+        getCombatState: () => state,
+      });
+
       buildView();
       context.root.replaceChildren(appEl);
-      controller.mount();
+      controller.mount(); // active la zone par défaut (plateau), focus seul
       updateView();
 
+      // Annonce d'accueil : instructions + contenu de la zone active (plateau).
       const L = labels();
-      controller.activate(0, { silent: true });
-      say(`${L.instructions} ${L.enemy}. ${describeEnemy()}`);
+      say(`${L.instructions} ${controller.describeActive()}`);
 
       // Raccourcis globaux (fin de tour + annonces + emplacements 1–9).
       onKeydown = (event) => {
@@ -501,6 +514,7 @@ export function createCombatScene() {
       appEl = null;
       refs = null;
       tdByIndex = null;
+      estimator = null;
       state = null;
       context = null;
       actions = [];

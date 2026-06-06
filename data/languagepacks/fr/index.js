@@ -61,7 +61,7 @@ export default {
     },
     enemyHp: {
       name: 'Points de vie',
-      display: '{value} sur {max} adverses.',
+      display: '{value} sur {max} points de vie adverses.',
       help: 'Faites tomber les points de vie adverses pour remporter ce combat.',
     },
     attack: {
