@@ -26,11 +26,13 @@
     <!--
       Régions ARIA live — pilotées exclusivement par ui/announce.js.
       Elles sont visuellement masquées (.visually-hidden) mais lues par NVDA.
-        - #aria-status   : annonces non urgentes (polite)  → changements d'état, tour.
-        - #aria-alert    : annonces urgentes (assertive)   → erreurs, coups invalides.
-      role + aria-live sont redondants volontairement (meilleure compat NVDA).
+        - #live-a / #live-b : annonces non urgentes (polite). DEUX régions
+          alternées : on bascule de l'une à l'autre à chaque annonce pour que
+          NVDA perçoive un changement même si le message est identique au précédent.
+        - #aria-alert       : annonces urgentes (assertive) → erreurs, fin de combat.
     -->
-    <div id="aria-status" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="live-a" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    <div id="live-b" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <div id="aria-alert" class="visually-hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
     <script type="module" src="./main.js"></script>
