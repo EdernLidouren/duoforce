@@ -55,6 +55,10 @@ export function shortDescription(power, strings) {
  * @returns {string}
  */
 export function longDescription(power, strings) {
+  const parts = powerParts(power, strings);
+  // Description vide (effets non encore définis) → on s'en tient à la forme
+  // courte, sans deux-points orphelins.
+  if (!parts.description) return shortDescription(power, strings);
   const template = strings?.power?.long ?? '{name}, {type}, {rarity} : {description}';
-  return format(template, powerParts(power, strings));
+  return format(template, parts);
 }

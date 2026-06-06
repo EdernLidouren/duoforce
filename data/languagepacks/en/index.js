@@ -82,6 +82,20 @@ export default {
     long: '{name}, {type}, {rarity}: {description}',
   },
 
+  // Combat messages (end of turn). Template + per-stat labels.
+  // {change} is e.g. "+2" or "-1"; {label} is one of the labels below.
+  effectMessageFormat: '{change} {label}',
+  effectLabels: {
+    attack: 'attack',
+    defense: 'defense',
+    enemy_attack: 'enemy attack',
+    enemy_defense: 'enemy defense',
+    hp: 'hit points',
+    credit: 'credit',
+    maneuver: 'maneuvers',
+    strategy: 'strategies',
+  },
+
   powerTypes: {
     offensive: 'offensive',
     support: 'support',
@@ -99,39 +113,39 @@ export default {
   powers: {
     power_aerial_strike: {
       name: 'Aerial Strike',
-      description: 'Deals heavy damage from above, stronger when placed high.',
+      description: '+4 attack in the sky, -1 attack on the ground, +2 attack otherwise.',
     },
     power_shield: {
       name: 'Shield',
-      description: 'Bolsters the duo’s defense, especially on the left flank.',
+      description: '+3 defense on the left, -1 defense on the right, +1 defense otherwise.',
     },
     power_phalanx: {
       name: 'Phalanx',
-      description: 'Gains defense when surrounded by other support powers.',
+      description: '+3 defense near a support power, ×2 defense in the center column, +1 defense otherwise.',
     },
     power_vanguard: {
       name: 'Vanguard',
-      description: 'Hits harder next to a shield or in the corners.',
+      description: '+5 attack next to a shield, ×2 attack in the corners, +2 attack otherwise.',
     },
     power_disrupt: {
       name: 'Disrupt',
-      description: 'Weakens the enemy’s attack and defense.',
+      description: '',
     },
     power_curse: {
       name: 'Curse',
-      description: 'Manipulates enemy stats, with possible backlash.',
+      description: '',
     },
     power_medic: {
       name: 'Medic',
-      description: 'Heals the duo and generates support resources.',
+      description: '+3 hit points near a support power, +1 maneuver on the ground, +1 strategy otherwise.',
     },
     power_tactician: {
       name: 'Tactician',
-      description: 'Produces credit and draws, and manipulates the board.',
+      description: '+1 credit on the center cell.',
     },
     power_sabotage: {
       name: 'Sabotage',
-      description: 'Discards or exiles neighboring powers on the board.',
+      description: '',
     },
   },
 

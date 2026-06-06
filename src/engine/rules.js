@@ -254,12 +254,18 @@ function finalize(acc, combatState) {
  * Résout l'ensemble du plateau et retourne les effets accumulés.
  * @param {Array} boardState   9 cases (index 0–8), null si vide.
  * @param {object} combatState { duo: { attack, defense, ... }, enemy: { attack, defense, ... } }
- * @returns {object} effets accumulés (voir en-tête de fichier).
+ * @returns {object} effets accumulés (voir en-tête de fichier), plus
+ *   `activations` : [{ position, powerId, effects }] dans l'ordre de résolution.
  */
 export function resolveBoard(boardState, combatState) {
   // Copie de travail : discard/exile retirent des cases sans toucher l'entrée.
   const board = boardState.slice();
   const acc = createAccumulator();
+
+  // Journal d'activation, dans l'ordre de résolution : pour chaque pouvoir ayant
+  // produit au moins un effet, { position, powerId, effects }. Sert à construire
+  // les messages de fin de tour (voir src/ui/combatMessages.js).
+  const activations = [];
 
   for (const pos of RESOLUTION_ORDER) {
     const power = board[pos];
@@ -267,10 +273,15 @@ export function resolveBoard(boardState, combatState) {
 
     const context = buildContext(pos, board, combatState);
     const effects = resolvePowerEffects(power, context);
+    if (effects.length > 0) {
+      activations.push({ position: pos, powerId: power.id, effects });
+    }
     for (const eff of effects) {
       applyEffect(acc, eff, pos, board);
     }
   }
 
-  return finalize(acc, combatState);
+  const result = finalize(acc, combatState);
+  result.activations = activations;
+  return result;
 }

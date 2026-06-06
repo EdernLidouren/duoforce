@@ -1,42 +1,43 @@
 #!/usr/bin/env python3
-"""serve.py — Serveur de développement local SANS cache.
+"""serve.py — Serveur de développement local SANS cache (multi-thread).
 
 Pourquoi : `python -m http.server` ne renvoie aucun en-tête `Cache-Control`.
 Le navigateur met alors en cache les modules ES de façon heuristique et continue
 de servir d'ANCIENNES versions des fichiers après modification — d'où des bugs
 fantômes (ex. une propriété récemment ajoutée qui apparaît « undefined »).
 
-Ce petit lanceur force `Cache-Control: no-store` : chaque rechargement repart
-des fichiers à jour. Pur Python, aucune dépendance.
+Ce lanceur force `Cache-Control: no-store` (chaque rechargement repart des
+fichiers à jour) TOUT EN restant multi-thread, comme `python -m http.server`.
+Le multi-thread est indispensable : une page à modules ES déclenche de
+nombreuses requêtes concurrentes (graphe d'imports) ; un serveur mono-thread se
+bloque dès qu'une connexion traîne ou qu'un client annule une requête, ce qui
+fait échouer les requêtes suivantes (page blanche / erreur de connexion).
+
+Pur Python, aucune dépendance.
 
 Usage :
     python serve.py            # port 8000 par défaut
     python serve.py 8080       # port personnalisé
     puis ouvrir http://localhost:<port>/
-
-Pour un simple essai (sans édition en cours), `python -m http.server` suffit.
 """
 
 import sys
-import http.server
-import socketserver
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
-class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+class NoCacheHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # Empêche toute mise en cache (modules ES inclus) en développement.
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
 
-class ReusableServer(socketserver.TCPServer):
-    allow_reuse_address = True  # évite « address already in use » au redémarrage
-
-
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    with ReusableServer(("", port), NoCacheHandler) as httpd:
-        print(f"Serveur de dev sans cache : http://localhost:{port}/")
+    # ThreadingHTTPServer : requêtes concurrentes (comme `python -m http.server`).
+    # Il active déjà allow_reuse_address et des threads démons.
+    with ThreadingHTTPServer(("", port), NoCacheHandler) as httpd:
+        print(f"Serveur de dev sans cache (multi-thread) : http://localhost:{port}/")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

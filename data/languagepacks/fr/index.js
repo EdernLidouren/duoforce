@@ -87,6 +87,20 @@ export default {
     long: '{name}, {type}, {rarity} : {description}',
   },
 
+  // Messages de combat (fin de tour). Gabarit + libellés par statistique.
+  // {change} vaut p.ex. « +2 » ou « -1 » ; {label} est un libellé ci-dessous.
+  effectMessageFormat: '{change} {label}',
+  effectLabels: {
+    attack: 'attaque',
+    defense: 'défense',
+    enemy_attack: 'attaque ennemie',
+    enemy_defense: 'défense ennemie',
+    hp: 'points de vie',
+    credit: 'crédit',
+    maneuver: 'manœuvres',
+    strategy: 'stratégies',
+  },
+
   // Libellés des types de pouvoir.
   powerTypes: {
     offensive: 'offensif',
@@ -107,39 +121,39 @@ export default {
   powers: {
     power_aerial_strike: {
       name: 'Frappe aérienne',
-      description: 'Inflige de lourds dégâts depuis le ciel, plus efficace en hauteur.',
+      description: '+4 attaque dans le ciel, -1 attaque en terre, +2 attaque sinon.',
     },
     power_shield: {
       name: 'Bouclier',
-      description: 'Renforce la défense du duo, surtout sur le flanc gauche.',
+      description: '+3 défense à gauche, -1 défense à droite, +1 défense sinon.',
     },
     power_phalanx: {
       name: 'Phalange',
-      description: 'Gagne en défense lorsqu’elle est entourée d’autres soutiens.',
+      description: '+3 défense près d’un soutien, ×2 défense dans la colonne centrale, +1 défense sinon.',
     },
     power_vanguard: {
       name: 'Avant-garde',
-      description: 'Frappe plus fort à côté d’un bouclier ou dans les coins.',
+      description: '+5 attaque à côté d’un bouclier, ×2 attaque dans les coins, +2 attaque sinon.',
     },
     power_disrupt: {
       name: 'Perturbation',
-      description: 'Affaiblit l’attaque et la défense de l’ennemi.',
+      description: '',
     },
     power_curse: {
       name: 'Malédiction',
-      description: 'Manipule les statistiques ennemies, au prix de revers possibles.',
+      description: '',
     },
     power_medic: {
       name: 'Médic',
-      description: 'Soigne le duo et génère des ressources de soutien.',
+      description: '+3 points de vie près d’un soutien, +1 manœuvre en terre, +1 stratégie sinon.',
     },
     power_tactician: {
       name: 'Tacticien',
-      description: 'Produit des crédits et de la pioche, et manipule le plateau.',
+      description: '+1 crédit sur la case centrale.',
     },
     power_sabotage: {
       name: 'Sabotage',
-      description: 'Défausse ou exile les pouvoirs voisins sur le plateau.',
+      description: '',
     },
   },
 
