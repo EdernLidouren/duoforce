@@ -1,6 +1,6 @@
 // src/ui/powerText.js — Assemble les descriptions localisées d'un pouvoir.
 //
-// Un pouvoir (src/data/powers.js) ne porte que des identifiants : son nom et sa
+// Un pouvoir (src/data/powers/) ne porte que des identifiants : son nom et sa
 // description sont des chaînes localisées (pack `powers`), son type et sa rareté
 // se traduisent via les packs `powerTypes` et `rarities`. Ce module compose, à
 // partir de gabarits localisés (`power.short`, `power.long`), deux textes :

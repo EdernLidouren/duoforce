@@ -17,8 +17,8 @@
 // à état) ; chaque fonction retourne l'état pour permettre le chaînage.
 
 import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
-import { getPowerById } from '../data/powers.js';
-import { HEROES } from '../data/heroes.js';
+import { getPowerById } from '../data/powers/index.js';
+import { HEROES } from '../data/heroes/index.js';
 import {
   BOARD_SIZE,
   HAND_SIZE,

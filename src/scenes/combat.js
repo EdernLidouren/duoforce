@@ -28,8 +28,8 @@ import {
 } from '../engine/combat.js';
 import { STRATEGY_PICK } from '../engine/gameState.js';
 import { createEstimator } from '../engine/estimator.js';
-import { HEROES } from '../data/heroes.js';
-import { DUMMY_ENEMY } from '../data/enemies.js';
+import { HEROES } from '../data/heroes/index.js';
+import { DUMMY_ENEMY } from '../data/enemies/index.js';
 import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
