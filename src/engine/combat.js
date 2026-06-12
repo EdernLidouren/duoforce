@@ -17,6 +17,7 @@
 // à état) ; chaque fonction retourne l'état pour permettre le chaînage.
 
 import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
+import { processTurnEnd } from './statuses.js';
 import { getPowerById } from '../data/powers/index.js';
 import { HEROES } from '../data/heroes/index.js';
 import {
@@ -124,6 +125,8 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
     deck,
     discard: [],
     exile: [],
+    // Statuts actifs (voir src/engine/statuses.js).
+    statuses: { duo: [], enemy: [], entities: new Map() },
     duo: {
       hp: DEFAULT_DUO_HP,
       maxHp: DEFAULT_DUO_HP,
@@ -184,16 +187,6 @@ export function startTurn(state) {
 
 // --- Résolution d'un tour ---------------------------------------------------
 
-/** Déplace les pouvoirs des cases données vers une pile, puis vide les cases. */
-function moveCardsFromBoard(state, positions, pile) {
-  for (const i of positions) {
-    if (state.board[i] != null) {
-      state[pile].push(state.board[i]);
-      state.board[i] = null;
-    }
-  }
-}
-
 /**
  * Applique des dégâts à une cible. La défense absorbe en priorité :
  *   - si défense >= dégâts : les PV restent inchangés (la défense est réduite
@@ -203,70 +196,74 @@ function moveCardsFromBoard(state, positions, pile) {
  * @param {number} incoming  dégâts entrants (attaque de l'attaquant)
  */
 function applyDamage(target, incoming) {
-  if (incoming <= 0) return;
+  if (incoming <= 0) return 0;
   if (target.defense >= incoming) {
     target.defense -= incoming;
-  } else {
-    target.hp -= incoming - target.defense;
-    target.defense = 0;
+    return 0;
   }
+  const overflow = incoming - target.defense;
+  target.hp -= overflow;
+  target.defense = 0;
+  return overflow;
 }
 
 /**
  * Résolution de tour : applique les effets du plateau, puis la phase du duo et
- * la phase ennemie. Met à jour le statut (victoire/défaite). Mute et renvoie l'état.
+ * la phase ennemie. Met à jour le statut (victoire/défaite). Mute l'état et
+ * renvoie un RAPPORT pour la construction des messages :
+ *   { activations, damageToEnemy, damageToDuo, status }.
  * @param {object} state
- * @returns {object} state
+ * @returns {{activations:Array, damageToEnemy:number, damageToDuo:number, status:string}}
  */
 export function resolveTurn(state) {
-  if (state.status !== 'ongoing') return state;
-
-  const result = resolveBoard(state.board, state);
-
-  // Valeurs de combat finales (multiplicateurs déjà appliqués par resolveBoard).
-  state.duo.attack = result.attack;
-  state.duo.defense = result.defense;
-  state.enemy.attack = result.enemyAttack;
-  state.enemy.defense = result.enemyDefense;
-
-  // Ressources.
-  state.duo.maneuver += result.maneuver;
-  state.duo.strategy += result.strategy;
-  state.duo.credit += result.credit;
-  state.duo.hp = Math.min(state.duo.maxHp, state.duo.hp + result.heal);
-  state.enemy.hp = Math.min(state.enemy.maxHp, state.enemy.hp + result.enemyHeal);
-
-  // Manipulation de deck décidée pendant la résolution.
-  moveCardsFromBoard(state, result.exile, 'exile');
-  moveCardsFromBoard(state, result.discard, 'discard');
-
-  // Effet "draw" : on remplit les cases vides (placeholder — ces pouvoirs ne se
-  // résolvent pas ce tour-ci).
-  if (result.draw > 0) {
-    const empty = RESOLUTION_ORDER.filter((pos) => state.board[pos] == null);
-    const extra = drawPowers(state, Math.min(result.draw, empty.length));
-    extra.forEach((power, k) => { state.board[empty[k]] = power; });
+  if (state.status !== 'ongoing') {
+    return { activations: [], damageToEnemy: 0, damageToDuo: 0, status: state.status };
   }
+
+  // Résolution sur une copie de travail ; on commet ici les valeurs obtenues
+  // (les helpers ont déjà mutué la copie : sommes, multiplicateurs, soins,
+  // ressources, modificateurs de statuts...).
+  const r = resolveBoard(state.board, state);
+  state.duo.attack = r.duo.attack;
+  state.duo.defense = r.duo.defense;
+  state.duo.maneuver = r.duo.maneuver;
+  state.duo.strategy = r.duo.strategy;
+  state.duo.credit = r.duo.credit;
+  state.duo.hp = r.duo.hp;          // soins du duo déjà appliqués (plafonnés)
+  state.enemy.attack = r.enemy.attack;
+  state.enemy.defense = r.enemy.defense;
+  state.enemy.hp = r.enemy.hp;      // soin de l'ennemi déjà appliqué
 
   // Phase du duo : l'attaque du duo frappe l'ennemi ; sa défense absorbe en
   // priorité, le surplus réduit ses PV.
-  applyDamage(state.enemy, state.duo.attack);
+  const damageToEnemy = applyDamage(state.enemy, state.duo.attack);
+  let damageToDuo = 0;
   if (state.enemy.hp <= 0) {
     state.enemy.hp = 0;
     state.status = 'won';
-    return state;
+  } else {
+    // Phase ennemie : l'attaque ennemie frappe le duo.
+    damageToDuo = applyDamage(state.duo, state.enemy.attack);
+    if (state.duo.hp <= 0) {
+      state.duo.hp = 0;
+      state.status = 'lost';
+    }
   }
 
-  // Phase ennemie : l'attaque ennemie frappe le duo ; sa défense absorbe en
-  // priorité, le surplus réduit ses PV.
-  applyDamage(state.duo, state.enemy.attack);
-  if (state.duo.hp <= 0) {
-    state.duo.hp = 0;
-    state.status = 'lost';
-    return state;
+  // Fin de tour : statuts (poison, décréments de durée, expirations...).
+  processTurnEnd(state);
+  // Un statut a pu faire tomber des PV : ré-évaluer l'issue.
+  if (state.status === 'ongoing') {
+    if (state.enemy.hp <= 0) { state.enemy.hp = 0; state.status = 'won'; }
+    else if (state.duo.hp <= 0) { state.duo.hp = 0; state.status = 'lost'; }
   }
 
-  return state;
+  return {
+    activations: r.activations,
+    damageToEnemy,
+    damageToDuo,
+    status: state.status,
+  };
 }
 
 /**

@@ -34,6 +34,7 @@ import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybinding
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
 import { longDescription, powerName } from '../ui/powerText.js';
+import { turnMessages, resolutionMessages, turnStartMessage } from '../ui/combatMessages.js';
 
 /** Disposition visuelle du plateau : lignes ciel / surface / terre. */
 const BOARD_ROWS = [
@@ -83,6 +84,7 @@ export function createCombatScene() {
   let boardY = 0;
   let actionCursor = 0;
   let actions = [];
+  let historyCursor = -1; // index de l'élément d'historique sous le curseur
 
   // --- Accès aux chaînes -----------------------------------------------------
 
@@ -199,12 +201,20 @@ export function createCombatScene() {
       el('p', {}, endTurnBtn, document.createTextNode(' '), backBtn),
     );
 
+    // Zone 5 — Messages (historique de combat). La liste s'enrichit en fin de tour.
+    refs.history = el('ul', { className: 'combat__log' });
+    const messagesZoneEl = el('section', {},
+      el('h2', { textContent: L.messages }),
+      refs.history,
+    );
+
     appEl = el('div', { className: 'combat' },
       el('h1', { textContent: L.title }),
       enemyZoneEl,
       boardZoneEl,
       duoZoneEl,
       actionsZoneEl,
+      messagesZoneEl,
     );
 
     const zones = [
@@ -212,6 +222,7 @@ export function createCombatScene() {
       { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
       { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
+      { id: 'messages', element: messagesZoneEl, label: L.messages, onEnter: () => describeHistory(), onKey: onHistoryKey },
     ];
 
     controller = createZoneController({
@@ -252,14 +263,14 @@ export function createCombatScene() {
     return { x: 0, y: 0 };
   }
 
-  /** Annonce d'une case : « <ligne> <colonne>, <description longue | vide> ». */
+  /** Annonce d'une case : « <description longue | vide>, <ligne> <colonne> ». */
   function describeCellAt(index) {
     const L = labels();
     const { x, y } = positionOf(index);
     const position = `${[L.sky, L.surface, L.ground][y]} ${[L.left, L.center, L.right][x]}`;
     const power = state.board[index];
-    if (!power) return `${position}, ${L.empty}`;
-    return `${position}, ${longDescription(power, context.strings)}`;
+    if (!power) return `${L.empty}, ${position}`;
+    return `${longDescription(power, context.strings)}, ${position}`;
   }
 
   function describeCell() {
@@ -268,6 +279,47 @@ export function createCombatScene() {
 
   function currentActionLabel() {
     return actions[actionCursor]?.button.textContent ?? '';
+  }
+
+  /** Nom localisé de l'ennemi courant. */
+  function enemyName() {
+    return context.strings?.enemies?.[state.enemy.nameId] ?? state.enemy.nameId;
+  }
+
+  // --- Zone d'historique (messages) -----------------------------------------
+
+  /**
+   * Ajoute un message : l'annonce (file de l'annonceur) ET l'ajoute à
+   * l'historique visible. Les messages sont ainsi lus un par un.
+   */
+  function pushMessage(message) {
+    context.announce.enqueue(message); // file séquentielle : lus un par un
+    refs.history.append(el('li', { textContent: message }));
+  }
+
+  /** Annonce d'entrée de zone : dernier message, ou « aucun message ». */
+  function describeHistory() {
+    const items = refs.history.children;
+    if (items.length === 0) return labels().noMessages;
+    historyCursor = items.length - 1;
+    return items[historyCursor].textContent;
+  }
+
+  /** Flèches haut/bas : parcourt l'historique et annonce chaque message. */
+  function onHistoryKey(event) {
+    const items = refs.history.children;
+    if (items.length === 0) return false;
+    if (event.key === 'ArrowUp') {
+      historyCursor = Math.max(0, (historyCursor < 0 ? items.length : historyCursor) - 1);
+      say(items[historyCursor].textContent);
+      return true;
+    }
+    if (event.key === 'ArrowDown') {
+      historyCursor = Math.min(items.length - 1, historyCursor + 1);
+      say(items[historyCursor].textContent);
+      return true;
+    }
+    return false;
   }
 
   // --- Annonces des ressources / infos (raccourcis) -------------------------
@@ -325,8 +377,7 @@ export function createCombatScene() {
     const c = combatStrings();
     const types = c.combatType ?? {};
     const combatType = state.enemy.isBoss ? (types.boss ?? 'combat de boss') : (types.normal ?? 'combat');
-    const enemy = context.strings?.enemies?.[state.enemy.nameId] ?? state.enemy.nameId;
-    say(format(c.turnAnnounce ?? 'Tour {turn}, {combatType} contre {enemy}.', { turn: state.turn, combatType, enemy }));
+    say(format(c.turnAnnounce ?? 'Tour {turn}, {combatType} contre {enemy}.', { turn: state.turn, combatType, enemy: enemyName() }));
   }
 
   function announcePower(index) {
@@ -419,17 +470,35 @@ export function createCombatScene() {
 
   function endTurn() {
     if (isOver(state)) return;
-    resolveTurn(state);
-    if (!isOver(state)) startTurn(state);
-    estimator.invalidate(); // le plateau (et l'ennemi) ont changé
-    updateView();
 
-    const L = labels();
-    if (isOver(state)) {
-      context.announce.assertive(getOutcome(state) === 'won' ? L.victory : L.defeat);
-    } else {
-      controller.announceActive();
+    const report = resolveTurn(state);
+
+    // 1) Messages des pouvoirs activés, dans l'ordre de résolution.
+    for (const message of turnMessages(report.activations, context.strings)) {
+      pushMessage(message);
     }
+    // 2) Messages de résolution (dégâts, défaite éventuelle puis arrêt).
+    for (const message of resolutionMessages(report, enemyName(), context.strings)) {
+      pushMessage(message);
+    }
+
+    // 3) Issue du combat.
+    if (state.status === 'lost') {
+      updateView();
+      context.router.go('gameover'); // défaite → scène de game over
+      return;
+    }
+    if (state.status === 'won') {
+      estimator.invalidate();
+      updateView();
+      return; // victoire → on s'arrête (pas de tour suivant)
+    }
+
+    // 4) Tour suivant.
+    startTurn(state);
+    estimator.invalidate();
+    pushMessage(turnStartMessage(state.turn, context.strings));
+    updateView();
   }
 
   /** Aiguille un raccourci global vers l'action correspondante. */
@@ -521,6 +590,7 @@ export function createCombatScene() {
       boardX = 0;
       boardY = 0;
       actionCursor = 0;
+      historyCursor = -1;
     },
   };
 }

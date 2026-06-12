@@ -1,87 +1,176 @@
 // src/ui/combatMessages.js — Construction des messages de combat (localisés).
 //
-// But (bases) : produire, à la résolution d'un tour, un message court par
-// pouvoir activé, dans l'ordre — ex. « +2 attaque », « -1 défense ennemie »,
-// « +3 points de vie ». Aucun message n'est produit si un pouvoir n'apporte
-// aucun effet « messageable » (effet hors périmètre pour l'instant, ou valeur
-// nulle).
+// À la résolution d'un tour, on produit, dans l'ordre, un (ou des) message(s)
+// par pouvoir activé, puis les messages de résolution (dégâts, défaite), puis le
+// message de début de tour suivant. Tout est en chaînes localisées ; ce module
+// ne fait ni DOM ni annonce — il rend des tableaux de chaînes que la scène
+// envoie une par une à l'annonceur.
 //
-// Périmètre actuel (effets traduits en message) : valeurs additives de combat
-// du duo et de l'ennemi, plus les ressources du duo. Les autres effets
-// (multiplicateurs, pioche/défausse/exil, soin ennemi) sont volontairement
-// laissés vides pour l'instant → ils ne produisent pas de message.
-//
-// Aucun DOM ; ne dépend que des données d'effet et du pack de langue.
+// Par pouvoir :
+//   - Effets de VALEUR (pv, pv adverses, attaque/adverse, défense/adverse,
+//     manœuvres, crédit, stratégie ; +, -, ×, ÷) → concaténés en UN message
+//     « {nom} : {effets}. », triés division → multiplication → augmentation →
+//     réduction, joints « a, b et c ».
+//   - Effets COMPLEXES (défausse, exil, pioche) → un message chacun.
+//   - Aucun effet (valeurs neutres) → « {nom} est inactif. ».
 
 import { format } from './format.js';
+import { powerName } from './powerText.js';
 
-// Effet → { stat, sign }. `stat` indexe le libellé localisé (pack effectLabels) ;
-// `sign` donne le sens de variation (+1 ajoute, -1 retire). La valeur de l'effet
-// est toujours une magnitude positive dans les données ; le signe est porté ici.
-const EFFECT_TO_STAT = {
-  add_attack: { stat: 'attack', sign: 1 },
-  remove_attack: { stat: 'attack', sign: -1 },
-  add_defense: { stat: 'defense', sign: 1 },
-  remove_defense: { stat: 'defense', sign: -1 },
-  add_enemy_attack: { stat: 'enemy_attack', sign: 1 },
-  remove_enemy_attack: { stat: 'enemy_attack', sign: -1 },
-  add_enemy_defense: { stat: 'enemy_defense', sign: 1 },
-  remove_enemy_defense: { stat: 'enemy_defense', sign: -1 },
-  heal: { stat: 'hp', sign: 1 },
-  credit: { stat: 'credit', sign: 1 },
-  maneuver: { stat: 'maneuver', sign: 1 },
-  strategy: { stat: 'strategy', sign: 1 },
-  // Hors périmètre pour l'instant (pas d'entrée → pas de message) :
-  //   multiply_*, enemy_heal, draw, discard, exile.
+// Effet de valeur → statistique (libellé via effectLabels) + opération.
+const VALUE_EFFECTS = {
+  add_attack: { stat: 'attack', op: 'add' },
+  remove_attack: { stat: 'attack', op: 'remove' },
+  multiply_attack: { stat: 'attack', op: 'multiply' },
+  add_defense: { stat: 'defense', op: 'add' },
+  remove_defense: { stat: 'defense', op: 'remove' },
+  multiply_defense: { stat: 'defense', op: 'multiply' },
+  add_enemy_attack: { stat: 'enemy_attack', op: 'add' },
+  remove_enemy_attack: { stat: 'enemy_attack', op: 'remove' },
+  multiply_enemy_attack: { stat: 'enemy_attack', op: 'multiply' },
+  add_enemy_defense: { stat: 'enemy_defense', op: 'add' },
+  remove_enemy_defense: { stat: 'enemy_defense', op: 'remove' },
+  multiply_enemy_defense: { stat: 'enemy_defense', op: 'multiply' },
+  heal: { stat: 'hp', op: 'add' },
+  enemy_heal: { stat: 'enemy_hp', op: 'add' },
+  maneuver: { stat: 'maneuver', op: 'add' },
+  credit: { stat: 'credit', op: 'add' },
+  strategy: { stat: 'strategy', op: 'add' },
 };
 
+// Ordre de tri des effets de valeur : division, multiplication, augmentation, réduction.
+const CATEGORY = { '÷': 0, '×': 1, '+': 2, '-': 3 };
+
 /**
- * Message court pour un effet unique, ou null si rien à afficher.
- * @param {{effect:string, value:number}} effect
- * @param {object} strings  pack de langue
- * @returns {string|null}
+ * Élément de message pour un effet de valeur (ex. « +2 attaque »), ou null si
+ * l'effet est neutre (×1, ÷1, +0, -0).
+ * @returns {{text:string, category:number}|null}
  */
-export function effectMessage(effect, strings) {
-  if (!effect) return null;
-  const mapping = EFFECT_TO_STAT[effect.effect];
-  if (!mapping) return null; // effet hors périmètre
+function valueItem(eff, strings) {
+  const spec = VALUE_EFFECTS[eff.effect];
+  if (!spec) return null;
+  const value = eff.value ?? 0;
 
-  const delta = mapping.sign * (effect.value ?? 0);
-  if (delta === 0) return null; // aucun effet réel
+  let symbol;
+  let magnitude;
+  switch (spec.op) {
+    case 'multiply':
+      if (value === 1) return null;
+      symbol = '×'; magnitude = value; break;
+    case 'divide':
+      if (value === 1) return null;
+      symbol = '÷'; magnitude = value; break;
+    case 'remove':
+      if (value === 0) return null;
+      symbol = '-'; magnitude = value; break;
+    case 'add':
+    default:
+      if (value === 0) return null;
+      symbol = value > 0 ? '+' : '-';
+      magnitude = Math.abs(value);
+      break;
+  }
 
-  const label = strings?.effectLabels?.[mapping.stat] ?? mapping.stat;
-  const change = `${delta > 0 ? '+' : '-'}${Math.abs(delta)}`;
-  const template = strings?.effectMessageFormat ?? '{change} {label}';
-  return format(template, { change, label });
+  const label = strings?.effectLabels?.[spec.stat] ?? spec.stat;
+  return { text: `${symbol}${magnitude} ${label}`, category: CATEGORY[symbol] ?? 9 };
+}
+
+/** Joint une liste « a, b et c » selon les séparateurs localisés. */
+function joinList(items, strings) {
+  const log = strings?.log ?? {};
+  if (items.length <= 1) return items.join('');
+  const sep = log.listSeparator ?? ', ';
+  const last = log.listLast ?? ' et ';
+  return items.slice(0, -1).join(sep) + last + items[items.length - 1];
+}
+
+/** Message d'un effet complexe (défausse/exil) sur une case touchée. */
+function complexMessage(actorName, eff, affected, strings) {
+  const log = strings?.log ?? {};
+  const targetName = powerName({ id: affected.powerId }, strings);
+  const phrase = (log.directions ?? {})[affected.direction ?? 'none'] ?? '';
+  const direction = phrase ? ` ${phrase}` : '';
+  const template = eff.effect === 'exile'
+    ? (log.exileOne ?? '{actor} exile {target}{direction}.')
+    : (log.discardOne ?? '{actor} défausse {target}{direction}.');
+  return format(template, { actor: actorName, target: targetName, direction });
 }
 
 /**
- * Messages d'un pouvoir : tous les messages de ses effets activés (filtrés).
- * @param {Array} effects  effets produits par le pouvoir ce tour-ci
+ * Messages d'un pouvoir activé (dans l'ordre) : message d'effets de valeur,
+ * messages complexes, ou « inactif ».
+ * @param {{powerId:string, effects:Array}} activation
  * @param {object} strings
- * @returns {string[]} liste éventuellement vide
+ * @returns {string[]}
  */
-export function powerMessages(effects, strings) {
-  if (!Array.isArray(effects)) return [];
-  return effects.map((e) => effectMessage(e, strings)).filter((m) => m != null);
-}
+export function powerActivationMessages(activation, strings) {
+  const log = strings?.log ?? {};
+  const name = powerName({ id: activation.powerId }, strings);
 
-/**
- * Messages d'un tour : pour chaque pouvoir activé (dans l'ordre fourni), ses
- * messages — en omettant les pouvoirs sans aucun message.
- * @param {Array<{position:number, powerId:string, effects:Array}>} activations
- *   journal d'activation, typiquement resolveBoard(...).activations
- * @param {object} strings
- * @returns {Array<{position:number, powerId:string, messages:string[]}>}
- */
-export function turnMessages(activations, strings) {
-  if (!Array.isArray(activations)) return [];
-  const out = [];
-  for (const activation of activations) {
-    const messages = powerMessages(activation.effects, strings);
-    if (messages.length > 0) {
-      out.push({ position: activation.position, powerId: activation.powerId, messages });
+  const valueItems = [];
+  const complex = [];
+  for (const eff of activation.effects ?? []) {
+    if (VALUE_EFFECTS[eff.effect]) {
+      const item = valueItem(eff, strings);
+      if (item) valueItems.push(item);
+    } else if (eff.effect === 'discard' || eff.effect === 'exile') {
+      for (const affected of eff.affected ?? []) {
+        complex.push(complexMessage(name, eff, affected, strings));
+      }
+    } else if (eff.effect === 'draw' && (eff.value ?? 0) > 0) {
+      complex.push(format(log.draw ?? '{actor} pioche {value}.', { actor: name, value: eff.value }));
     }
   }
+
+  const messages = [];
+  if (valueItems.length > 0) {
+    valueItems.sort((a, b) => a.category - b.category);
+    const effects = joinList(valueItems.map((i) => i.text), strings);
+    messages.push(format(log.effects ?? '{name} : {effects}.', { name, effects }));
+  }
+  messages.push(...complex);
+  if (messages.length === 0) {
+    messages.push(format(log.inactive ?? '{name} est inactif.', { name }));
+  }
+  return messages;
+}
+
+/**
+ * Tous les messages de pouvoirs d'un tour, dans l'ordre de résolution.
+ * @param {Array} activations  resolveBoard(...).activations (ou report.activations)
+ * @param {object} strings
+ * @returns {string[]}
+ */
+export function turnMessages(activations, strings) {
+  const out = [];
+  for (const activation of activations ?? []) {
+    out.push(...powerActivationMessages(activation, strings));
+  }
   return out;
+}
+
+/**
+ * Messages de résolution (après les pouvoirs) : dégâts à l'ennemi, défaite
+ * éventuelle (et arrêt), sinon dégâts au duo.
+ * @param {{damageToEnemy:number, damageToDuo:number, status:string}} report
+ * @param {string} enemyName
+ * @param {object} strings
+ * @returns {string[]}
+ */
+export function resolutionMessages(report, enemyName, strings) {
+  const log = strings?.log ?? {};
+  const out = [];
+  out.push(format(log.enemyHit ?? '{enemy} subit {damage}.', { enemy: enemyName, damage: report.damageToEnemy }));
+  if (report.status === 'won') {
+    out.push(format(log.enemyDefeated ?? '{enemy} est vaincu.', { enemy: enemyName }));
+    return out;
+  }
+  out.push(format(log.duoHit ?? 'Votre duo subit {damage}.', { damage: report.damageToDuo }));
+  return out;
+}
+
+/** Message de début de tour. */
+export function turnStartMessage(turn, strings) {
+  const log = strings?.log ?? {};
+  return format(log.turnStart ?? 'Début du tour {turn}.', { turn });
 }

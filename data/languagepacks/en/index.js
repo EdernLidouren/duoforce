@@ -25,6 +25,8 @@ export default {
     duo: 'Duo',
     board: 'Board',
     actions: 'Actions',
+    messages: 'Messages',
+    noMessages: 'No messages.',
     instructions: 'Tab to switch zone, arrow keys to navigate.',
     attack: 'Attack',
     defense: 'Defense',
@@ -111,9 +113,33 @@ export default {
     enemy_attack: 'enemy attack',
     enemy_defense: 'enemy defense',
     hp: 'hit points',
+    enemy_hp: 'enemy hit points',
     credit: 'credit',
     maneuver: 'maneuvers',
-    strategy: 'strategies',
+    strategy: 'strategy',
+  },
+
+  // Combat log messages (end of turn), sent one by one to the announcer.
+  log: {
+    inactive: '{name} is inactive.',
+    effects: '{name}: {effects}.',
+    discardOne: '{actor} discards {target}{direction}.',
+    exileOne: '{actor} exiles {target}{direction}.',
+    draw: '{actor} draws {value}.',
+    enemyHit: '{enemy} takes {damage} damage.',
+    enemyDefeated: '{enemy} is defeated.',
+    duoHit: 'Your duo takes {damage} damage.',
+    turnStart: 'Start of turn {turn}.',
+    listSeparator: ', ',
+    listLast: ' and ',
+    directions: {
+      above: 'above',
+      below: 'below',
+      left: 'to the left',
+      right: 'to the right',
+      self: 'itself',
+      none: '',
+    },
   },
 
   powerTypes: {

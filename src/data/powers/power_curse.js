@@ -1,19 +1,24 @@
 // src/data/powers/power_curse.js
-// Spécial à double tranchant. Couvre tous les effets "ennemi" agressifs et leurs
-// multiplicateurs. Effets : multiply_enemy_defense (coeur, x0 = annule la défense
-// ennemie), add_enemy_defense, multiply_enemy_attack, add_enemy_attack (revers).
+// Spécial à double tranchant. Manipule les statistiques de l'ennemi.
 
 import { Rarity } from './rarity.js';
+import {
+  isInZone,
+  hasNeighborOfType,
+  multiplyEnemyDefense,
+  addEnemyDefense,
+  multiplyEnemyAttack,
+  addEnemyAttack,
+} from '../../engine/context.js';
 
 export const power_curse = {
   id: 'power_curse',
   type: 'special',
   rarity: Rarity.EPIC,
-  rules: [
-    { condition: [4], effect: 'multiply_enemy_defense', value: 0 },        // coeur
-    { condition: 'adjacent_to:offensive', effect: 'add_enemy_defense', value: 1 },
-    { condition: [0, 1, 2], effect: 'multiply_enemy_attack', value: 2 },   // terre (revers)
-    { condition: 'default', effect: 'add_enemy_attack', value: 1 },        // revers
-  ],
-  customResolve: null,
+  customResolve: (ctx) => {
+    if (isInZone(ctx, [4])) multiplyEnemyDefense(ctx, 0);             // coeur : annule la défense
+    else if (hasNeighborOfType(ctx, 'offensive')) addEnemyDefense(ctx, 1); // revers
+    else if (isInZone(ctx, [0, 1, 2])) multiplyEnemyAttack(ctx, 2);   // terre : revers
+    else addEnemyAttack(ctx, 1);                                      // revers
+  },
 };

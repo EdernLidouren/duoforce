@@ -1,18 +1,17 @@
 // src/data/powers/power_aerial_strike.js
-// Offensif. Conditions positionnelles (ciel/terre), voisinage offensif.
-// Effets : add_attack, remove_attack.
+// Offensif. Plus fort dans le ciel, plus faible en terre.
 
 import { Rarity } from './rarity.js';
+import { isInZone, hasNeighborOfType, addAttack, removeAttack } from '../../engine/context.js';
 
 export const power_aerial_strike = {
   id: 'power_aerial_strike',
   type: 'offensive',
   rarity: Rarity.UNCOMMON,
-  rules: [
-    { condition: [6, 7, 8], effect: 'add_attack', value: 4 },     // ciel
-    { condition: [0, 1, 2], effect: 'remove_attack', value: 1 },  // terre
-    { condition: 'adjacent_to:offensive', effect: 'add_attack', value: 2 },
-    { condition: 'default', effect: 'add_attack', value: 2 },
-  ],
-  customResolve: null,
+  customResolve: (ctx) => {
+    if (isInZone(ctx, [6, 7, 8])) addAttack(ctx, 4);          // ciel
+    else if (isInZone(ctx, [0, 1, 2])) removeAttack(ctx, 1);  // terre
+    else if (hasNeighborOfType(ctx, 'offensive')) addAttack(ctx, 2);
+    else addAttack(ctx, 2);
+  },
 };

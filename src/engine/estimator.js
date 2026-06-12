@@ -43,19 +43,13 @@ function createEmptyEstimate() {
  * @param {{board:Array, combatState:object}} ctx
  */
 function boardSource(estimate, { board, combatState }) {
+  // resolveBoard travaille sur une copie (aucune mutation de combatState) et
+  // renvoie les valeurs résolues : { duo:{...}, enemy:{...}, activations }.
   const r = resolveBoard(board, combatState);
-  // Valeurs finales déjà calculées par resolveBoard → on les pose.
-  estimate.duo.attack = r.attack;
-  estimate.duo.defense = r.defense;
-  estimate.enemy.attack = r.enemyAttack;
-  estimate.enemy.defense = r.enemyDefense;
-  // Ressources : cumulables avec d'autres sources → on additionne.
-  estimate.resources.heal += r.heal;
-  estimate.resources.enemyHeal += r.enemyHeal;
-  estimate.resources.maneuver += r.maneuver;
-  estimate.resources.strategy += r.strategy;
-  estimate.resources.credit += r.credit;
-  estimate.resources.draw += r.draw;
+  estimate.duo.attack = r.duo.attack;
+  estimate.duo.defense = r.duo.defense;
+  estimate.enemy.attack = r.enemy.attack;
+  estimate.enemy.defense = r.enemy.defense;
   estimate.activations = r.activations;
 }
 

@@ -1,18 +1,17 @@
 // src/data/powers/power_phalanx.js
-// Support. Synergie entre supports + multiplicateur de défense au centre.
-// Effets : add_defense, multiply_defense ; condition isolated.
+// Support. Synergie entre soutiens, multiplicateur de défense au centre.
 
 import { Rarity } from './rarity.js';
+import { isInZone, hasNeighborOfType, isIsolated, addDefense, multiplyDefense } from '../../engine/context.js';
 
 export const power_phalanx = {
   id: 'power_phalanx',
   type: 'support',
   rarity: Rarity.RARE,
-  rules: [
-    { condition: 'adjacent_to:support', effect: 'add_defense', value: 3 },
-    { condition: [7, 4, 1], effect: 'multiply_defense', value: 2 }, // centre
-    { condition: 'isolated', effect: 'add_defense', value: 0 },
-    { condition: 'default', effect: 'add_defense', value: 1 },
-  ],
-  customResolve: null,
+  customResolve: (ctx) => {
+    if (hasNeighborOfType(ctx, 'support')) addDefense(ctx, 3);
+    else if (isInZone(ctx, [7, 4, 1])) multiplyDefense(ctx, 2); // colonne centrale
+    else if (isIsolated(ctx)) { /* isolée : aucun effet */ }
+    else addDefense(ctx, 1);
+  },
 };

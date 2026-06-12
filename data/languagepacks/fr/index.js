@@ -27,6 +27,8 @@ export default {
     duo: 'Duo',
     board: 'Plateau',
     actions: 'Actions',
+    messages: 'Messages',
+    noMessages: 'Aucun message.',
     instructions: 'Tabulation pour changer de zone, flèches pour naviguer.',
     attack: 'Attaque',
     defense: 'Défense',
@@ -113,12 +115,36 @@ export default {
   effectLabels: {
     attack: 'attaque',
     defense: 'défense',
-    enemy_attack: 'attaque ennemie',
-    enemy_defense: 'défense ennemie',
+    enemy_attack: 'attaque adverse',
+    enemy_defense: 'défense adverse',
     hp: 'points de vie',
+    enemy_hp: 'points de vie adverses',
     credit: 'crédit',
     maneuver: 'manœuvres',
-    strategy: 'stratégies',
+    strategy: 'stratégie',
+  },
+
+  // Messages de combat (fin de tour), envoyés un par un à l'annonceur.
+  log: {
+    inactive: '{name} est inactif.',
+    effects: '{name} : {effects}.',
+    discardOne: '{actor} défausse {target}{direction}.',
+    exileOne: '{actor} exile {target}{direction}.',
+    draw: '{actor} pioche {value}.',
+    enemyHit: '{enemy} subit {damage}.',
+    enemyDefeated: '{enemy} est vaincu.',
+    duoHit: 'Votre duo subit {damage}.',
+    turnStart: 'Début du tour {turn}.',
+    listSeparator: ', ',
+    listLast: ' et ',
+    directions: {
+      above: 'au-dessus',
+      below: 'en-dessous',
+      left: 'à gauche',
+      right: 'à droite',
+      self: 'lui-même',
+      none: '',
+    },
   },
 
   // Libellés des types de pouvoir.

@@ -1,18 +1,18 @@
 // src/data/powers/power_disrupt.js
-// Spécial. Débuff ennemi + exil d'une colonne depuis les coins.
-// Effets : remove_enemy_attack, remove_enemy_defense, exile (target "col").
+// Spécial. Débuff de l'ennemi (attaque / défense).
+// (L'exil de pouvoir d'origine est retiré : pas de helper de manipulation de
+// deck dans context.js pour l'instant.)
 
 import { Rarity } from './rarity.js';
+import { isInZone, hasNeighborOfType, removeEnemyAttack, removeEnemyDefense } from '../../engine/context.js';
 
 export const power_disrupt = {
   id: 'power_disrupt',
   type: 'special',
   rarity: Rarity.RARE,
-  rules: [
-    { condition: 'adjacent_to:special', effect: 'remove_enemy_attack', value: 3 },
-    { condition: [7, 4, 1], effect: 'remove_enemy_defense', value: 2 }, // centre
-    { condition: [6, 8, 0, 2], effect: 'exile', value: 1, target: 'col' },
-    { condition: 'default', effect: 'remove_enemy_attack', value: 1 },
-  ],
-  customResolve: null,
+  customResolve: (ctx) => {
+    if (hasNeighborOfType(ctx, 'special')) removeEnemyAttack(ctx, 3);
+    else if (isInZone(ctx, [7, 4, 1])) removeEnemyDefense(ctx, 2); // colonne centrale
+    else removeEnemyAttack(ctx, 1);
+  },
 };
