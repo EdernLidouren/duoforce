@@ -6,10 +6,12 @@
 //
 // Accessibilité — navigation par zones (voir src/ui/zones.js) :
 //   Le conteneur a role="application" (focus mode maintenu). L'interface est
-//   découpée en quatre zones cyclables par Tab / Maj+Tab :
-//     1. Ennemi · 2. Plateau · 3. Duo · 4. Actions (tour + boutons).
+//   découpée en cinq zones cyclables par Tab / Maj+Tab :
+//     1. Ennemi · 2. Duo · 3. Plateau · 4. Actions (tour + boutons) · 5. Historique.
 //   Dans la zone Plateau, les flèches déplacent un curseur 2D ; chaque case est
 //   annoncée sous la forme « Ciel Gauche, <description longue du pouvoir> ».
+//   La zone Historique conserve les 15 derniers messages de combat (flèches
+//   haut/bas pour les parcourir).
 //
 // Raccourcis globaux (keybindings.js), valables quelle que soit la zone active :
 //   Ctrl+E fin de tour · V pv duo · Maj+V pv ennemi · M manœuvres · S stratégies
@@ -52,6 +54,9 @@ const ARROW_DELTAS = {
 };
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+/** Nombre maximal de messages conservés dans la zone Historique. */
+const HISTORY_LIMIT = 15;
 
 /** Petit helper de création d'éléments DOM. */
 function el(tag, { attrs, ...props } = {}, ...children) {
@@ -106,6 +111,8 @@ export function createCombatScene() {
       duo: c.duo ?? 'Duo',
       board: c.board ?? 'Plateau',
       actions: c.actions ?? 'Actions',
+      history: c.history ?? 'Historique',
+      noMessages: c.noMessages ?? 'Aucun message.',
       instructions: c.instructions ?? 'Tabulation pour changer de zone, flèches pour naviguer.',
       hp: resource('hp').name ?? 'Points de vie',
       attack: c.attack ?? 'Attaque',
@@ -201,28 +208,29 @@ export function createCombatScene() {
       el('p', {}, endTurnBtn, document.createTextNode(' '), backBtn),
     );
 
-    // Zone 5 — Messages (historique de combat). La liste s'enrichit en fin de tour.
+    // Zone 5 — Historique (journal de combat). La liste s'enrichit en fin de tour
+    // et ne conserve que les HISTORY_LIMIT derniers messages.
     refs.history = el('ul', { className: 'combat__log' });
-    const messagesZoneEl = el('section', {},
-      el('h2', { textContent: L.messages }),
+    const historyZoneEl = el('section', {},
+      el('h2', { textContent: L.history }),
       refs.history,
     );
 
     appEl = el('div', { className: 'combat' },
       el('h1', { textContent: L.title }),
       enemyZoneEl,
-      boardZoneEl,
       duoZoneEl,
+      boardZoneEl,
       actionsZoneEl,
-      messagesZoneEl,
+      historyZoneEl,
     );
 
     const zones = [
       { id: 'enemy', element: enemyZoneEl, label: L.enemy, onEnter: () => describeEnemy() },
-      { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
       { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
+      { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
-      { id: 'messages', element: messagesZoneEl, label: L.messages, onEnter: () => describeHistory(), onKey: onHistoryKey },
+      { id: 'history', element: historyZoneEl, label: L.history, onEnter: () => describeHistory(), onKey: onHistoryKey },
     ];
 
     controller = createZoneController({
@@ -289,12 +297,16 @@ export function createCombatScene() {
   // --- Zone d'historique (messages) -----------------------------------------
 
   /**
-   * Ajoute un message : l'annonce (file de l'annonceur) ET l'ajoute à
-   * l'historique visible. Les messages sont ainsi lus un par un.
+   * Ajoute un message : l'annonce (région journal role="log", lue un par un) ET
+   * l'ajoute à l'historique visible, plafonné à HISTORY_LIMIT (le plus ancien est
+   * retiré au-delà).
    */
   function pushMessage(message) {
-    context.announce.enqueue(message); // file séquentielle : lus un par un
+    context.announce.enqueue(message); // région journal : mise en file par le lecteur
     refs.history.append(el('li', { textContent: message }));
+    while (refs.history.children.length > HISTORY_LIMIT) {
+      refs.history.removeChild(refs.history.firstChild);
+    }
   }
 
   /** Annonce d'entrée de zone : dernier message, ou « aucun message ». */
@@ -305,21 +317,33 @@ export function createCombatScene() {
     return items[historyCursor].textContent;
   }
 
-  /** Flèches haut/bas : parcourt l'historique et annonce chaque message. */
+  /**
+   * Navigation dans l'historique :
+   *   - Flèches haut/bas : recule/avance d'un message. Au bord dans cette
+   *     direction, la touche est consommée mais RIEN n'est annoncé (le silence
+   *     signale clairement la fin du parcours).
+   *   - Origine / Fin : saute au premier / dernier message.
+   */
   function onHistoryKey(event) {
     const items = refs.history.children;
     if (items.length === 0) return false;
-    if (event.key === 'ArrowUp') {
-      historyCursor = Math.max(0, (historyCursor < 0 ? items.length : historyCursor) - 1);
-      say(items[historyCursor].textContent);
-      return true;
+    const last = items.length - 1;
+    const current = historyCursor < 0 ? last : historyCursor;
+
+    let target;
+    switch (event.key) {
+      case 'ArrowUp': target = Math.max(0, current - 1); break;
+      case 'ArrowDown': target = Math.min(last, current + 1); break;
+      case 'Home': target = 0; break;
+      case 'End': target = last; break;
+      default: return false;
     }
-    if (event.key === 'ArrowDown') {
-      historyCursor = Math.min(items.length - 1, historyCursor + 1);
-      say(items[historyCursor].textContent);
-      return true;
-    }
-    return false;
+
+    // Bord atteint (aucun déplacement) : touche consommée, aucune annonce.
+    if (target === historyCursor) return true;
+    historyCursor = target;
+    say(items[historyCursor].textContent);
+    return true;
   }
 
   // --- Annonces des ressources / infos (raccourcis) -------------------------

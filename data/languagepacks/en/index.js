@@ -25,7 +25,7 @@ export default {
     duo: 'Duo',
     board: 'Board',
     actions: 'Actions',
-    messages: 'Messages',
+    history: 'History',
     noMessages: 'No messages.',
     instructions: 'Tab to switch zone, arrow keys to navigate.',
     attack: 'Attack',
@@ -175,11 +175,11 @@ export default {
     },
     power_disrupt: {
       name: 'Disrupt',
-      description: '',
+      description: '-3 enemy attack near a special power, -2 enemy defense in the center column, -1 enemy attack otherwise.',
     },
     power_curse: {
       name: 'Curse',
-      description: '',
+      description: '×0 enemy defense in the center, +1 enemy defense near an offensive power, ×2 enemy attack on the ground, +1 enemy attack otherwise.',
     },
     power_medic: {
       name: 'Medic',
@@ -187,11 +187,11 @@ export default {
     },
     power_tactician: {
       name: 'Tactician',
-      description: '+1 credit on the center cell.',
+      description: '+1 credit on the center cell, +1 strategy when isolated, +1 maneuver otherwise.',
     },
     power_sabotage: {
       name: 'Sabotage',
-      description: '',
+      description: '-2 enemy defense near an offensive power, -1 enemy attack in the right column, +1 attack otherwise.',
     },
   },
 

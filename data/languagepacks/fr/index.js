@@ -27,7 +27,7 @@ export default {
     duo: 'Duo',
     board: 'Plateau',
     actions: 'Actions',
-    messages: 'Messages',
+    history: 'Historique',
     noMessages: 'Aucun message.',
     instructions: 'Tabulation pour changer de zone, flèches pour naviguer.',
     attack: 'Attaque',
@@ -183,11 +183,11 @@ export default {
     },
     power_disrupt: {
       name: 'Perturbation',
-      description: '',
+      description: '-3 attaque adverse près d’un spécial, -2 défense adverse dans la colonne centrale, -1 attaque adverse sinon.',
     },
     power_curse: {
       name: 'Malédiction',
-      description: '',
+      description: '×0 défense adverse au centre, +1 défense adverse près d’un offensif, ×2 attaque adverse en terre, +1 attaque adverse sinon.',
     },
     power_medic: {
       name: 'Médic',
@@ -195,11 +195,11 @@ export default {
     },
     power_tactician: {
       name: 'Tacticien',
-      description: '+1 crédit sur la case centrale.',
+      description: '+1 crédit sur la case centrale, +1 stratégie si isolé, +1 manœuvre sinon.',
     },
     power_sabotage: {
       name: 'Sabotage',
-      description: '',
+      description: '-2 défense adverse près d’un offensif, -1 attaque adverse dans la colonne de droite, +1 attaque sinon.',
     },
   },
 

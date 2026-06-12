@@ -1,26 +1,26 @@
-// src/ui/announce.js — Annonces ARIA live par DEUX RÉGIONS ALTERNÉES.
+// src/ui/announce.js — Annonces ARIA live.
 //
-// Technique préconisée par NV Access : deux régions aria-live="polite" identiques
-// coexistent (#live-a et #live-b). À chaque écriture on bascule de l'une à
-// l'autre, ce qui garantit que NVDA perçoit un changement même si le message est
-// identique au précédent.
+// Trois canaux, tous masqués visuellement mais lus par NVDA :
 //
-// Deux modes d'annonce polie :
-//   - polite(message)  : IMMÉDIAT. Vide la file et annonce tout de suite ; le
-//     plus récent gagne. Pour la navigation, les requêtes, les annonces uniques.
-//   - enqueue(message) : SÉQUENTIEL. Met en file ; les messages sont émis un par
-//     un, espacés, et donc lus les uns après les autres. Pour les rafales de
-//     messages (ex. journal de fin de tour) : sans cela, tout serait écrit dans
-//     le même tick et seul le dernier serait lu. Une annonce polite() en cours
-//     de file l'interrompt (le joueur peut consulter le journal dans la zone
-//     Messages).
+//   - polite(message)  : annonce polie IMMÉDIATE via DEUX RÉGIONS ALTERNÉES
+//     (#live-a / #live-b). Technique préconisée par NV Access : à chaque écriture
+//     on bascule de l'une à l'autre, ce qui garantit que NVDA perçoit un
+//     changement même si le message est identique au précédent. Pour la
+//     navigation, les requêtes, les annonces uniques (le plus récent gagne).
 //
-// La région assertive (#aria-alert) reste une région unique immédiate.
+//   - enqueue(message) : journal SÉQUENTIEL via une région role="log" (#live-log).
+//     On y AJOUTE un nœud par message ; le lecteur d'écran met naturellement les
+//     ajouts en file d'attente polie (aria-relevant=additions implicite,
+//     aria-atomic=false). Les messages sont donc lus les uns après les autres,
+//     SANS délai artificiel — les lecteurs d'écran gèrent très bien cette file.
+//
+//   - assertive(message) : région unique immédiate (#aria-alert), urgences.
 //
 // Seul ce module écrit dans les régions live. Aucune logique de jeu ici.
 
-// Intervalle entre deux messages de la file séquentielle (ms), ajustable.
-const MESSAGE_GAP = 250;
+// Nombre maximal de nœuds conservés dans la région journal (garde le DOM léger ;
+// les ajouts plus anciens ont déjà été annoncés, on peut les élaguer).
+const LOG_MAX_NODES = 30;
 
 /**
  * Crée un annonceur lié aux régions live.
@@ -29,8 +29,6 @@ const MESSAGE_GAP = 250;
  */
 export function createAnnouncer(regions = {}) {
   let activeRegion = 'a'; // région polite courante : 'a' ou 'b'
-  const queue = [];
-  let timer = null;
 
   /** Écrit un message dans la région polite courante, en basculant. */
   function writeToActive(message) {
@@ -42,30 +40,22 @@ export function createAnnouncer(regions = {}) {
     current.textContent = message;
   }
 
-  /** Émet le prochain message de la file, puis se reprogramme s'il en reste. */
-  function pump() {
-    if (queue.length === 0) {
-      timer = null;
-      return;
-    }
-    writeToActive(queue.shift());
-    timer = setTimeout(pump, MESSAGE_GAP);
-  }
-
-  /** Annonce immédiate (vide la file en cours). */
+  /** Annonce immédiate (la plus récente gagne). */
   function polite(message) {
-    queue.length = 0;
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
     writeToActive(message);
   }
 
-  /** Annonce séquentielle : mise en file, lue après les précédentes. */
+  /**
+   * Annonce séquentielle : ajoute un nœud à la région journal (role="log").
+   * Le lecteur d'écran les met en file et les lit un par un, sans délai imposé.
+   */
   function enqueue(message) {
-    queue.push(message);
-    if (timer === null) pump(); // démarre : premier message immédiat
+    const log = document.getElementById('live-log');
+    if (!log) { writeToActive(message); return; } // repli si la région manque
+    const line = document.createElement('div');
+    line.textContent = message;
+    log.append(line);
+    while (log.children.length > LOG_MAX_NODES) log.removeChild(log.firstChild);
   }
 
   /** Annonce urgente (région unique #aria-alert), immédiate. */

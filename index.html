@@ -29,10 +29,15 @@
         - #live-a / #live-b : annonces non urgentes (polite). DEUX régions
           alternées : on bascule de l'une à l'autre à chaque annonce pour que
           NVDA perçoive un changement même si le message est identique au précédent.
+        - #live-log         : journal séquentiel (role="log", polite). On y AJOUTE
+          un nœud par message ; le lecteur d'écran les met naturellement en file
+          d'attente (aria-relevant=additions implicite, aria-atomic=false). Pas de
+          délai artificiel entre messages.
         - #aria-alert       : annonces urgentes (assertive) → erreurs, fin de combat.
     -->
     <div id="live-a" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <div id="live-b" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    <div id="live-log" class="visually-hidden" role="log" aria-live="polite"></div>
     <div id="aria-alert" class="visually-hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
     <script type="module" src="./main.js"></script>
