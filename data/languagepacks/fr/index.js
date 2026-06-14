@@ -218,6 +218,10 @@ export default {
       name: 'poison',
       description: 'À la fin du tour, inflige {compteur} dégâts imblocables puis réduit de 1.',
     },
+    area_freeze_status: {
+      name: 'gel',
+      description: 'Annule les effets des pouvoirs offensifs ou de soutien placés ici.',
+    },
   },
 
   // Noms des héros (indexés par nameId).

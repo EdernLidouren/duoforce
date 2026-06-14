@@ -1,20 +1,35 @@
 // src/engine/rules.js — Résolution du plateau (modèle impératif).
 //
+// Le plateau (boardState) est un tableau de 9 ZONES (« area ») :
+//   { position, power: PowerInstance|null, statuses: [] }.
+//
 // Chaque pouvoir fournit une fonction customResolve(ctx) qui MUTE le combatState
 // via les helpers de context.js (voir docs/context-api.md). resolveBoard :
-//   1. travaille sur une COPIE du combatState (pureté : l'estimateur et le vrai
-//      état ne sont pas corrompus ; resolveTurn commet ensuite les valeurs) ;
+//   1. travaille sur une COPIE du combatState ET des zones (pureté : l'estimateur
+//      et le vrai état ne sont pas corrompus ; resolveTurn commet les valeurs) ;
 //   2. applique les modificateurs de statuts AVANT la résolution ;
-//   3. résout les pouvoirs dans l'ordre de lecture (6,7,8,3,4,5,0,1,2), chacun
-//      mutant la copie ; évalue les triggers de statuts APRÈS chaque pouvoir ;
+//   3. pour chaque zone, dans l'ordre de lecture (6,7,8,3,4,5,0,1,2) : le POUVOIR
+//      résout, PUIS la ZONE résout. Concrètement, isResolutionBlocked(ctx) est
+//      vérifié EN AMONT (épuisement du pouvoir, puis gel de la zone) ; si rien ne
+//      bloque, customResolve s'exécute. Les triggers de statuts sont évalués
+//      après chaque pouvoir ;
 //   4. retourne les valeurs résolues + un journal d'activation (pour les messages).
 //
 // Contrainte : logique pure, AUCUN DOM. Ne dépend que des données et de statuses.js.
 
-import { applyModifiers, evaluateTriggers, hasEntityStatus } from './statuses.js';
+import {
+  applyModifiers,
+  evaluateTriggers,
+  hasEntityStatus,
+  hasAreaStatus,
+} from './statuses.js';
 
 /** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
 const EXHAUSTION_ID = 'power_exhaustion_status';
+/** Id du status de zone qui gèle les pouvoirs offensifs / de soutien placés là. */
+const FREEZE_ID = 'area_freeze_status';
+/** Types de pouvoir affectés par le gel de zone (les « special » résolvent quand même). */
+const FREEZABLE_TYPES = new Set(['offensive', 'support']);
 
 // --- Disposition du plateau -------------------------------------------------
 //
@@ -71,21 +86,37 @@ function neighborIndices(pos) {
 
 /**
  * Construit le contexte passé à customResolve d'un pouvoir.
- *   position, neighbors (tableau), neighborsByDir ({left,right,above,below}),
- *   boardState, combatState (copie de travail).
+ *   position, power (le pouvoir de la zone), area (la zone courante),
+ *   neighbors (pouvoirs voisins), neighborsByDir ({left,right,above,below} → pouvoir),
+ *   neighborAreasByDir (idem → zone), boardState (les zones), combatState.
+ * Les voisins exposés comme « pouvoirs » restent des objets pouvoir (pas des
+ * zones) pour ne pas casser les customResolve existants.
  */
 function buildContext(pos, board, combatState) {
   const neighbors = neighborIndices(pos)
-    .map((i) => board[i])
+    .map((i) => board[i]?.power)
     .filter((p) => p != null);
 
   const neighborsByDir = {};
+  const neighborAreasByDir = {};
   for (const dir of ['left', 'right', 'above', 'below']) {
     const i = neighborInDirection(pos, dir);
-    neighborsByDir[dir] = i == null ? null : (board[i] ?? null);
+    const area = i == null ? null : (board[i] ?? null);
+    neighborAreasByDir[dir] = area;
+    neighborsByDir[dir] = area?.power ?? null;
   }
 
-  return { position: pos, neighbors, neighborsByDir, boardState: board, combatState };
+  const area = board[pos] ?? null;
+  return {
+    position: pos,
+    power: area?.power ?? null,
+    area,
+    neighbors,
+    neighborsByDir,
+    neighborAreasByDir,
+    boardState: board,
+    combatState,
+  };
 }
 
 /** Clone profond du conteneur de statuts (instances copiées, références d'entité conservées). */
@@ -101,11 +132,25 @@ function cloneStatuses(s) {
   return { duo: cloneList(s.duo), enemy: cloneList(s.enemy), entities };
 }
 
+/** Clone des zones (chaque zone copiée, ses statuts copiés, le pouvoir partagé). */
+function cloneBoard(board) {
+  if (!Array.isArray(board)) return board;
+  return board.map((area) =>
+    area
+      ? {
+          ...area,
+          statuses: Array.isArray(area.statuses) ? area.statuses.map((st) => ({ ...st })) : [],
+        }
+      : area,
+  );
+}
+
 /**
- * Copie de travail du combatState. duo/enemy sont clonés, ET les statuts sont
- * clonés en profondeur : la résolution peut donc appliquer des statuts (ex.
- * épuisement appliqué à un voisin par Plaquage lourd) SANS muter l'état réel.
- * Cela garantit la pureté de resolveBoard, utilisée aussi par l'estimateur.
+ * Copie de travail du combatState. duo/enemy ET les statuts (duo/enemy/entités)
+ * sont clonés en profondeur ; les ZONES sont clonées par resolveBoard. La
+ * résolution peut donc appliquer des statuts (épuisement d'un voisin, gel d'une
+ * zone) SANS muter l'état réel. Cela garantit la pureté de resolveBoard, utilisée
+ * aussi par l'estimateur.
  */
 function cloneForResolve(combatState) {
   return {
@@ -116,12 +161,33 @@ function cloneForResolve(combatState) {
   };
 }
 
+/**
+ * La résolution d'une zone est-elle bloquée ? On vérifie d'abord le POUVOIR
+ * (épuisement), puis la ZONE (gel). Le gel n'affecte que les pouvoirs offensifs
+ * ou de soutien ; les « special » résolvent normalement.
+ *
+ * Conceptuellement « le pouvoir résout, puis la zone résout » : ce contrôle a
+ * lieu en amont mais le gel représente un effet de la zone, postérieur à celui
+ * du pouvoir dans la hiérarchie conceptuelle.
+ * @param {object} work   combatState de travail
+ * @param {object} area   zone courante (avec ses statuts)
+ * @param {object} power  pouvoir de la zone (non nul)
+ * @returns {boolean}
+ */
+function isResolutionBlocked(work, area, power) {
+  if (hasEntityStatus(work, power, EXHAUSTION_ID)) return true; // pouvoir d'abord
+  if (hasAreaStatus(work, area.position, FREEZE_ID) && FREEZABLE_TYPES.has(power.type)) {
+    return true; // zone ensuite
+  }
+  return false;
+}
+
 // --- API principale ---------------------------------------------------------
 
 /**
- * Résout l'ensemble du plateau SANS muter l'entrée (travaille sur une copie).
- * @param {Array} boardState   9 cases (index 0–8), null si vide.
- * @param {object} combatState { duo:{...}, enemy:{...}, statuses }
+ * Résout l'ensemble du plateau SANS muter l'entrée (travaille sur des copies).
+ * @param {Array} boardState   9 zones (index 0–8) : { position, power, statuses }.
+ * @param {object} combatState { duo:{...}, enemy:{...}, statuses, board }
  * @returns {{ duo:object, enemy:object, activations:Array }}
  *   duo : { attack, defense, hp, maneuver, strategy, credit } (valeurs résolues)
  *   enemy : { attack, defense, hp }
@@ -129,18 +195,22 @@ function cloneForResolve(combatState) {
  */
 export function resolveBoard(boardState, combatState) {
   const work = cloneForResolve(combatState);
-  const board = boardState.slice();
+  // Zones clonées ; le moteur de statuts (statuses d'area) lit work.board.
+  const board = cloneBoard(boardState);
+  work.board = board;
 
   // 1) Modificateurs de statuts, avant la résolution.
   applyModifiers(work);
 
   const activationByPos = {};
   for (const pos of RESOLUTION_ORDER) {
-    const power = board[pos];
+    const area = board[pos];
+    const power = area?.power;
     if (!power) continue;
 
-    // Pouvoir épuisé : son customResolve n'est pas exécuté (aucun effet).
-    if (hasEntityStatus(work, power, EXHAUSTION_ID)) continue;
+    // Le pouvoir résout, puis la zone : si l'un ou l'autre bloque, customResolve
+    // n'est pas exécuté (aucun effet).
+    if (isResolutionBlocked(work, area, power)) continue;
 
     const ctx = buildContext(pos, board, work);
     ctx.effects = []; // journal des effets de ce pouvoir (pour les messages)
@@ -157,8 +227,9 @@ export function resolveBoard(boardState, combatState) {
   // bonus compte dans l'attaque du duo et est attribué au pouvoir renforcé.
   if (work._attackBonus instanceof Map) {
     for (const pos of RESOLUTION_ORDER) {
-      const power = board[pos];
-      if (!power || hasEntityStatus(work, power, EXHAUSTION_ID)) continue;
+      const area = board[pos];
+      const power = area?.power;
+      if (!power || isResolutionBlocked(work, area, power)) continue;
       const bonus = work._attackBonus.get(power);
       if (!bonus) continue;
       work.duo.attack += bonus;

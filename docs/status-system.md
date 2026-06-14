@@ -1,12 +1,13 @@
 # Système de statuts (`src/engine/statuses.js`)
 
-Un **status** est un état attaché au duo, à l'ennemi, ou à une entité (un pouvoir
-sur le plateau). Il influence le combat via des modificateurs (chaque tour), des
-triggers (en cours de tour), et une logique de fin de tour.
+Un **status** est un état attaché à une **cible** : le duo, l'ennemi, une
+**entité** (un pouvoir), ou une **zone** du plateau. Il influence le combat via
+des modificateurs (chaque tour), des triggers (en cours de tour), et une logique
+de fin de tour.
 
 ## Instance de status (en jeu)
 
-Objet minimal stocké dans le `combatState` :
+Objet minimal, selon la cible :
 
 ```js
 // cible duo / enemy
@@ -14,7 +15,12 @@ Objet minimal stocké dans le `combatState` :
 
 // cible entity (un pouvoir) — porte en plus une référence à l'objet visé
 { id: string, stacks: number, target: 'entity', entity: object }
+
+// cible area (une zone du plateau) — l'identifiant est la position (0–8)
+{ id: string, stacks: number, target: 'area', position: number }
 ```
+
+`target` prend donc quatre valeurs : `'duo' | 'enemy' | 'entity' | 'area'`.
 
 ## Sémantique de `stacks`
 
@@ -37,6 +43,7 @@ fin de tour.
 {
   id: string,
   stackable: boolean,        // réappliquer cumule les stacks (true) ou remplace (false)
+  onLimitReached?: string,   // 'overwrite' | 'ignore' | 'stack_if_same' (voir Limites)
   immunityFlag?: string,     // (entity) drapeau d'immunité vérifié sur l'entité visée
   modifiers: [],             // appliqués chaque tour, avant la résolution
   triggers: [],              // effets conditionnels évalués après chaque pouvoir
@@ -61,8 +68,8 @@ Altère une propriété du sujet (`combatState[target]`, soit `duo` soit `enemy`
 
 `applyModifiers` applique, pour chaque status actif, chaque modifier :
 `subject[property]` ← `+ value(stacks)` (add) / `* value(stacks)` (multiply) /
-`= value(stacks)` (override). Les statuts d'entité (pas de `combatState['entity']`)
-sont ignorés par `applyModifiers`.
+`= value(stacks)` (override). Les statuts dont la cible n'a pas d'objet de stats
+(`entity`, `area`) sont ignorés par `applyModifiers`.
 
 ### Trigger
 
@@ -91,50 +98,94 @@ d'appliquer ce status à une entité qui porte ce drapeau à `true`. Exemple :
 
 ```js
 combatState.statuses = { duo: [], enemy: [], entities: Map }
+// + les statuts de zone vivent sur les zones :
+combatState.board[position].statuses = []
 ```
 
 - `duo` / `enemy` : tableaux d'instances.
 - `entities` : **Map indexée par l'objet visé** (un pouvoir) → **tableau
   d'instances**. Plusieurs entités peuvent donc être statutées simultanément, et
   chacune peut porter plusieurs statuts.
+- `area` : les statuts d'une zone sont stockés **sur la zone elle-même**
+  (`board[position].statuses`), pas dans `combatState.statuses`. Ils persistent
+  d'un tour à l'autre (la zone survit à la redistribution des pouvoirs).
 
 > Les pouvoirs sont **instanciés en copies distinctes** à la construction du deck
 > (`buildDeck`, cf. `src/engine/combat.js`). Deux cartes du même id sont donc des
 > objets séparés : l'indexation par instance dans `entities` ne se télescope
 > jamais.
 
+## Limites de slots et `onLimitReached`
+
+Chaque type de cible a un **nombre maximal de statuts simultanés**, centralisé
+dans `src/engine/gameState.js` :
+
+| Cible | Constante | Valeur |
+|---|---|---|
+| `duo` | `MAX_STATUSES_PER_DUO` | `Infinity` (illimité) |
+| `enemy` | `MAX_STATUSES_PER_ENEMY` | `Infinity` (illimité) |
+| `entity` | `MAX_STATUSES_PER_ENTITY` | `Infinity` (illimité) |
+| `area` | `MAX_STATUSES_PER_AREA` | `1` |
+
+`applyStatus` procède ainsi :
+
+1. **Même id déjà présent** sur la cible → on met à jour ses `stacks` sans
+   consommer de slot : on additionne si `stackable` (ou si `onLimitReached`
+   vaut `'stack_if_same'`), sinon on remplace.
+2. Sinon, **s'il reste de la place** (`< limite`) → on ajoute le statut.
+3. Sinon (**limite atteinte**, ids tous différents) → on applique le champ
+   `onLimitReached` de la **définition du statut à ajouter** :
+   - `'overwrite'` — on évince le(s) plus ancien(s) pour faire de la place (pour
+     une limite de 1, l'ancien statut est simplement remplacé) ;
+   - `'ignore'` — le nouveau statut n'est pas appliqué, rien ne change ;
+   - `'stack_if_same'` — comme un même id est déjà traité à l'étape 1, il s'agit
+     forcément d'un id différent ici → comportement `'ignore'`.
+
+> Pour les cibles illimitées (`duo`/`enemy`/`entity`), l'étape 3 n'est jamais
+> atteinte ; `onLimitReached` n'a d'effet pratique que sur les `area` (limite 1).
+> `power_exhaustion_status` et `area_freeze_status` déclarent `'overwrite'`.
+
 ## Fonctions exposées
 
 | Fonction | Rôle |
 |---|---|
-| `applyStatus(combatState, instance)` | Applique un status (duo/enemy ou entity). Cumule si `stackable`, sinon remplace. Pour `entity`, requiert `instance.entity` et respecte `immunityFlag`. |
+| `applyStatus(combatState, instance)` | Applique un status (duo/enemy/entity/area). Gère les limites de slots et `onLimitReached`. Pour `entity`, requiert `instance.entity` et respecte `immunityFlag` ; pour `area`, requiert `instance.position`. |
 | `removeStatus(combatState, statusId, target)` | Retire un status d'une cible `duo`/`enemy`. |
 | `removeEntityStatus(combatState, entity, statusId)` | Retire un status d'une entité. |
+| `removeAreaStatus(combatState, position, statusId)` | Retire un status d'une zone. |
 | `hasStatus(combatState, statusId, target)` | `true` si le status est présent sur `duo`/`enemy`. |
 | `hasEntityStatus(combatState, entity, statusId)` | `true` si l'entité porte ce status. |
+| `hasAreaStatus(combatState, position, statusId)` | `true` si la zone porte ce status. |
 | `getStacks(combatState, statusId, target)` | Stacks sur `duo`/`enemy`, ou `0`. |
 | `getEntityStacks(combatState, entity, statusId)` | Stacks sur une entité, ou `0`. |
+| `getAreaStacks(combatState, position, statusId)` | Stacks sur une zone, ou `0`. |
 | `applyModifiers(combatState)` | Applique tous les modificateurs actifs (appelé par `resolveBoard` avant la résolution). |
 | `evaluateTriggers(combatState, ctx)` | Évalue/déclenche les triggers actifs (appelé par `resolveBoard` après chaque pouvoir). |
 | `processTurnEnd(combatState)` | Appelle `onTurnEnd` de chaque status, puis retire ceux dont les stacks `<= 0` (appelé par `combat.js` en fin de tour). |
 
 ## Intégration dans la boucle de combat
 
-1. **Avant la résolution** — `resolveBoard` (sur sa copie de travail, statuts
-   inclus) appelle `applyModifiers`.
-2. **Pendant la résolution** — un pouvoir **épuisé** (portant
-   `power_exhaustion_status`) voit son `customResolve` **sauté** ; après chaque
-   pouvoir résolu, `evaluateTriggers` est appelé.
+1. **Avant la résolution** — `resolveBoard` (sur sa copie de travail, statuts ET
+   zones inclus) appelle `applyModifiers`.
+2. **Pendant la résolution** — pour chaque zone, on évalue `isResolutionBlocked` :
+   le **pouvoir d'abord** (épuisé → bloqué), **la zone ensuite** (gelée → bloqué
+   si le pouvoir est offensif ou de soutien). Si rien ne bloque, `customResolve`
+   s'exécute ; après chaque pouvoir, `evaluateTriggers` est appelé.
 3. **En fin de tour** — `combat.js` (`resolveTurn`) appelle `processTurnEnd`
    après les phases de dégâts, puis ré-évalue victoire/défaite (un statut a pu
    faire tomber des PV).
 
-> **Portée des statuts d'entité.** `resolveBoard` clone les statuts en
-> profondeur (pureté pour l'estimateur). Un statut posé sur un pouvoir *pendant*
-> la résolution (ex. épuisement par `heavy_slam`) vit donc sur la copie : il
-> agit dans la même résolution (le pouvoir visé est sauté) puis est jeté. Comme
-> le plateau est entièrement redistribué à chaque début de tour, c'est la portée
-> voulue (effet intra-tour).
+> **« Le pouvoir résout, puis la zone résout ».** Le contrôle `isResolutionBlocked`
+> a lieu *en amont*, mais conceptuellement le gel est un effet de la **zone** qui
+> s'applique après celui du pouvoir dans la hiérarchie. L'ordre de vérification
+> (pouvoir → zone) reflète cette priorité.
+
+> **Portée et pureté.** `resolveBoard` clone en profondeur statuts ET zones
+> (pureté pour l'estimateur). Un statut posé *pendant* la résolution (ex.
+> épuisement par `heavy_slam`) vit donc sur la copie : il agit dans la même
+> résolution (le pouvoir visé est sauté) puis est jeté. Les statuts persistants
+> (poison sur un héros, gel sur une zone) vivent sur l'état réel et sont
+> décrémentés par `processTurnEnd`.
 
 ---
 
@@ -183,3 +234,30 @@ Application :
 `applyStatus(combatState, { id: 'hero_poison_status', stacks: 3, target: 'enemy' })`.
 Tour 1 : −3 PV, stacks → 2 ; tour 2 : −2, → 1 ; tour 3 : −1, → 0 (retiré).
 Réappliquer Poison 2 (stackable) cumule l'intensité restante.
+
+## Exemple 3 — Gel (`area_freeze_status`, durée, zone)
+
+Cible une **zone** (`target: 'area'`, identifiée par `position`). Tant qu'elle
+est active, un pouvoir **offensif ou de soutien** placé sur la zone ne résout pas
+(ses effets sont annulés) ; les pouvoirs **special** résolvent normalement. Ce
+blocage est appliqué par `resolveBoard` (`isResolutionBlocked`), pas par la
+définition, qui ne gère que la durée. Limite de zone = 1 ; `onLimitReached`
+`'overwrite'` (un nouveau gel remplace l'ancien).
+
+```js
+// src/data/statuses/area_freeze_status.js
+export const area_freeze_status = {
+  id: 'area_freeze_status',
+  stackable: false,
+  onLimitReached: 'overwrite',
+  modifiers: [],
+  triggers: [],
+  onTurnEnd: (status) => { status.stacks -= 1; },
+};
+```
+
+Application :
+`applyStatus(combatState, { id: 'area_freeze_status', stacks: 1, target: 'area', position: 4 })`.
+La zone 4 est gelée ce tour ; son éventuel pouvoir offensif/soutien est neutralisé.
+Le statut vit sur `board[4].statuses` et persiste jusqu'à expiration, quels que
+soient les pouvoirs qui occupent la zone au fil des tours.

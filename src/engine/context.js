@@ -2,13 +2,20 @@
 //
 // Le « contexte » (ctx) est construit par resolveBoard pour chaque pouvoir résolu :
 //   {
-//     position,        // index 0–8 de la case du pouvoir
-//     neighbors,       // pouvoirs voisins orthogonaux (tableau, peut être vide)
-//     neighborsByDir,  // { left, right, above, below } → pouvoir voisin ou null
-//     boardState,      // les 9 cases (copie de travail), null si vide
-//     combatState,     // état de combat (copie de travail mutée par les écritures)
-//     effects,         // (optionnel) journal des effets, pour les messages
+//     position,            // index 0–8 de la zone
+//     power,               // le pouvoir de la zone courante (objet)
+//     area,                // la zone courante : { position, power, statuses }
+//     neighbors,           // POUVOIRS voisins orthogonaux (tableau, peut être vide)
+//     neighborsByDir,      // { left, right, above, below } → pouvoir voisin ou null
+//     neighborAreasByDir,  // { left, right, above, below } → ZONE voisine ou null
+//     boardState,          // les 9 zones (copie de travail)
+//     combatState,         // état de combat (copie de travail mutée par les écritures)
+//     effects,             // (optionnel) journal des effets, pour les messages
 //   }
+//
+// Les helpers de voisinage qui retournent un « voisin » renvoient des objets
+// POUVOIR (pas des zones), pour ne pas casser les customResolve existants. Pour
+// accéder aux statuts d'une zone voisine, utiliser getNeighborArea.
 //
 // LECTURE : helpers sur le plateau (position, voisins).
 // ÉCRITURE : helpers qui MUTENT ctx.combatState directement et ne retournent
@@ -27,6 +34,17 @@
  */
 export function getNeighbor(ctx, dir) {
   return ctx.neighborsByDir?.[dir] ?? null;
+}
+
+/**
+ * Zone voisine dans une direction, ou null. Utile pour lire les statuts de la
+ * zone voisine (`area.statuses`) ou son pouvoir (`area.power`).
+ * @param {object} ctx
+ * @param {'left'|'right'|'above'|'below'} dir
+ * @returns {object|null}
+ */
+export function getNeighborArea(ctx, dir) {
+  return ctx.neighborAreasByDir?.[dir] ?? null;
 }
 
 /** true si ctx.position appartient au tableau de cases. */

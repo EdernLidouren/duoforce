@@ -1,3 +1,7 @@
+mécanique :
+
+Les neuf cases du platau des pouvoirs sont des objets à part entière, dans le sens où chacune peut posséder un statut. Une case ne peut posséder qu'un statut à la fois, un nouveau remplace l'ancien.
+
 Statuts :
 
 id : power_exhaustion_status
@@ -12,6 +16,10 @@ Cibles possibles : Héros (ennemi, duo)
 Description mécanique : En fin de tour, inflige un nombre de dégâts imbloquables égal au compteur au héros affecté, puis décrémente de 1.
 description en jeu : À la fin du tour, inflige {compteur} dégâts imbloquables puis réduit de 1."
 
+id : area_freeze_status
+nom (fr, en) : gel, freeze
+Description mécanique : Annule les effets du pouvoir dans cette case si son type est offensif ou soutien.
+Description en jeu : Annule le pouvoir dans cette zone si son type est offensif ou soutien.
 
 pouvoirs :
 
@@ -65,6 +73,18 @@ id : iron_will_power
 nom (fr, en) : Volonté de fer, iron will
 Description mécanique : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif (épuisement).
 Description en jeu : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif.
+
+
+
+id : arctic_veil_power
+nom (fr, en) : voile arctique, arctic veil
+Description mécanique : +1 défense et +1 manoeuvre. Applique 1 statut gel sur la case du pouvoir.
+Description en jeu : +1 défense, +1 manoeuvre et +1 statut gel sur cette case.
+
+id : blizzard_power
+nom (fr, en) : blizzard, blizzard
+Description mécanique : Si le pouvoir est sur la ligne supérieure et que le joueur a au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. +2 attaque sinon.
+Description en jeu : Si à la surface ou au ciel et que vous avez au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. +2 attaque sinon.
 
 
 Héros :

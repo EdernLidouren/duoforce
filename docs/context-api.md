@@ -5,23 +5,43 @@ Bibliothèque de helpers passés à chaque `customResolve(ctx)` de pouvoir. Le
 
 ```js
 {
-  position,        // index 0–8 de la case du pouvoir
-  neighbors,       // pouvoirs voisins orthogonaux (tableau, peut être vide)
-  neighborsByDir,  // { left, right, above, below } → pouvoir voisin ou null
-  boardState,      // les 9 cases (copie de travail), null si vide
-  combatState,     // état de combat (copie de travail mutée par les écritures)
-  effects,         // journal des effets (rempli par les helpers d'écriture)
+  position,            // index 0–8 de la zone
+  power,               // le pouvoir de la zone courante (objet)
+  area,                // la zone courante : { position, power, statuses }
+  neighbors,           // POUVOIRS voisins orthogonaux (tableau, peut être vide)
+  neighborsByDir,      // { left, right, above, below } → pouvoir voisin ou null
+  neighborAreasByDir,  // { left, right, above, below } → zone voisine ou null
+  boardState,          // les 9 zones (copie de travail)
+  combatState,         // état de combat (copie de travail mutée par les écritures)
+  effects,             // journal des effets (rempli par les helpers d'écriture)
 }
 ```
 
 > **Important :** `resolveBoard` travaille sur une **copie** du `combatState`
-> (duo, enemy ET statuts sont clonés). Les helpers d'écriture mutent donc cette
-> copie ; les valeurs sont ensuite commises par `resolveTurn`. L'estimateur peut
-> appeler `resolveBoard` autant qu'il veut sans rien corrompre.
+> (duo, enemy, statuts ET zones sont clonés). Les helpers d'écriture mutent donc
+> cette copie ; les valeurs sont ensuite commises par `resolveTurn`. L'estimateur
+> peut appeler `resolveBoard` autant qu'il veut sans rien corrompre.
 >
 > Chaque helper d'écriture **mute `ctx.combatState` et ne retourne rien**. Il
 > enregistre aussi un descripteur `{ effect, value }` dans `ctx.effects` pour la
 > construction des messages de fin de tour.
+
+## Le plateau et les zones (`area`)
+
+Le plateau (`boardState`) est un tableau de **9 zones**. Chaque zone (« area »
+dans le code) est un objet à part entière :
+
+```js
+{
+  position: number,         // 0–8
+  power: PowerInstance | null,
+  statuses: [],             // statuts de zone (ex. gel) — voir status-system.md
+}
+```
+
+Le pouvoir d'une zone s'obtient via `area.power`. Les statuts attachés à la zone
+(et non au pouvoir) vivent dans `area.statuses` et **persistent d'un tour à
+l'autre** (le pouvoir est redistribué chaque tour, pas la zone).
 
 Disposition du plateau (index) :
 
@@ -37,7 +57,8 @@ Disposition du plateau (index) :
 
 | Helper | Signature | Lit | Retour |
 |---|---|---|---|
-| `getNeighbor` | `(ctx, dir)` | `ctx.neighborsByDir[dir]` | pouvoir voisin dans `dir` (`'left'\|'right'\|'above'\|'below'`) ou `null` |
+| `getNeighbor` | `(ctx, dir)` | `ctx.neighborsByDir[dir]` | **pouvoir** voisin dans `dir` (`'left'\|'right'\|'above'\|'below'`) ou `null` |
+| `getNeighborArea` | `(ctx, dir)` | `ctx.neighborAreasByDir[dir]` | **zone** voisine dans `dir` (pour lire `area.statuses` / `area.power`) ou `null` |
 | `isInZone` | `(ctx, cells)` | `ctx.position` | `true` si la position est dans le tableau `cells` |
 | `hasNeighborOfType` | `(ctx, type)` | `ctx.neighbors` | `true` s'il existe un voisin orthogonal de ce `type` |
 | `hasNeighborById` | `(ctx, id)` | `ctx.neighbors` | `true` s'il existe un voisin orthogonal de cet `id` |

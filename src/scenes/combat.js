@@ -276,7 +276,7 @@ export function createCombatScene() {
     const L = labels();
     const { x, y } = positionOf(index);
     const position = `${[L.sky, L.surface, L.ground][y]} ${[L.left, L.center, L.right][x]}`;
-    const power = state.board[index];
+    const power = state.board[index].power;
     if (!power) return `${L.empty}, ${position}`;
     return `${longDescription(power, context.strings)}, ${position}`;
   }
@@ -468,7 +468,7 @@ export function createCombatScene() {
     refs.enemy.defense.textContent = `${L.defense} : ${enemy.defense}`;
 
     for (const [i, td] of tdByIndex) {
-      const power = state.board[i];
+      const power = state.board[i].power;
       td.textContent = power ? powerName(power, context.strings) : L.empty;
     }
 

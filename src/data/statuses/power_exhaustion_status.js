@@ -10,6 +10,7 @@
 export const power_exhaustion_status = {
   id: 'power_exhaustion_status',
   stackable: false, // réappliquer réinitialise la durée (ne cumule pas)
+  onLimitReached: 'overwrite', // (entité illimitée : sans effet en pratique)
   immunityFlag: 'immuneToExhaustion',
   modifiers: [],
   triggers: [],

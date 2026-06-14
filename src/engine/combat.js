@@ -85,6 +85,18 @@ function createEnemy(overrides = {}) {
   };
 }
 
+/**
+ * Construit le plateau : 9 ZONES vides. Chaque zone (« area ») est un objet
+ * { position, power, statuses } — voir docs/context-api.md.
+ */
+function createBoard() {
+  return Array.from({ length: BOARD_SIZE }, (_, position) => ({
+    position,
+    power: null,
+    statuses: [],
+  }));
+}
+
 // --- Pioche -----------------------------------------------------------------
 
 /**
@@ -125,7 +137,7 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
     rng,
     turn: 0,
     status: 'ongoing', // 'ongoing' | 'won' | 'lost'
-    board: new Array(BOARD_SIZE).fill(null),
+    board: createBoard(),
     deck,
     discard: [],
     exile: [],
@@ -161,11 +173,13 @@ function evaluateEnemy(state) {
 export function startTurn(state) {
   if (state.status !== 'ongoing') return state;
 
-  // Défausse de tous les pouvoirs encore sur le plateau.
-  for (let i = 0; i < state.board.length; i++) {
-    if (state.board[i] != null) {
-      state.discard.push(state.board[i]);
-      state.board[i] = null;
+  // Défausse de tous les pouvoirs encore sur le plateau. Les STATUTS de zone
+  // (ex. gel) restent attachés à la zone : ils persistent d'un tour à l'autre,
+  // indépendamment du pouvoir qui l'occupe.
+  for (const area of state.board) {
+    if (area.power != null) {
+      state.discard.push(area.power);
+      area.power = null;
     }
   }
 
@@ -174,7 +188,7 @@ export function startTurn(state) {
   // Distribution : placement dans l'ordre de lecture (6,7,8,3,4,5,0,1,2).
   const drawn = drawPowers(state, HAND_SIZE);
   drawn.forEach((power, k) => {
-    state.board[RESOLUTION_ORDER[k]] = power;
+    state.board[RESOLUTION_ORDER[k]].power = power;
   });
 
   // Gain de ressources jusqu'aux valeurs par défaut (top-up, sans réduire).

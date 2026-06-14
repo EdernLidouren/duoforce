@@ -32,3 +32,19 @@ export const STARTING_CREDIT = 0;
 export const DEFAULT_ENEMY_HP = 24;
 export const DEFAULT_ENEMY_ATTACK = 6;
 export const DEFAULT_ENEMY_DEFENSE = 2;
+
+// --- Statuts : limites de slots par type de cible ---------------------------
+//
+// Nombre maximum de statuts simultanés sur une même cible. Le moteur de statuts
+// (src/engine/statuses.js) consulte ces limites ; le comportement quand une
+// limite est atteinte dépend du champ `onLimitReached` de la définition du
+// status ajouté (overwrite / ignore / stack_if_same).
+
+/** Statuts simultanés sur le duo (illimité). */
+export const MAX_STATUSES_PER_DUO = Infinity;
+/** Statuts simultanés sur l'ennemi (illimité). */
+export const MAX_STATUSES_PER_ENEMY = Infinity;
+/** Statuts simultanés sur une entité (pouvoir / side-kick / gadget) (illimité). */
+export const MAX_STATUSES_PER_ENTITY = Infinity;
+/** Statuts simultanés sur une zone du plateau. */
+export const MAX_STATUSES_PER_AREA = 1;

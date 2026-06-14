@@ -210,6 +210,10 @@ export default {
       name: 'poison',
       description: 'At the end of the turn, deals {compteur} unblockable damage, then decreases by 1.',
     },
+    area_freeze_status: {
+      name: 'freeze',
+      description: 'Cancels the effects of offensive or support powers placed here.',
+    },
   },
 
   // Hero names (indexed by nameId).
