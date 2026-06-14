@@ -11,7 +11,10 @@
 //
 // Contrainte : logique pure, AUCUN DOM. Ne dépend que des données et de statuses.js.
 
-import { applyModifiers, evaluateTriggers } from './statuses.js';
+import { applyModifiers, evaluateTriggers, hasEntityStatus } from './statuses.js';
+
+/** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
+const EXHAUSTION_ID = 'power_exhaustion_status';
 
 // --- Disposition du plateau -------------------------------------------------
 //
@@ -85,12 +88,31 @@ function buildContext(pos, board, combatState) {
   return { position: pos, neighbors, neighborsByDir, boardState: board, combatState };
 }
 
-/** Copie de travail du combatState (duo/enemy clonés, statuts partagés en lecture). */
+/** Clone profond du conteneur de statuts (instances copiées, références d'entité conservées). */
+function cloneStatuses(s) {
+  if (!s) return { duo: [], enemy: [], entities: new Map() };
+  const cloneList = (list) => (Array.isArray(list) ? list.map((st) => ({ ...st })) : []);
+  const entities = new Map();
+  if (s.entities instanceof Map) {
+    for (const [key, list] of s.entities) {
+      entities.set(key, Array.isArray(list) ? list.map((st) => ({ ...st })) : []);
+    }
+  }
+  return { duo: cloneList(s.duo), enemy: cloneList(s.enemy), entities };
+}
+
+/**
+ * Copie de travail du combatState. duo/enemy sont clonés, ET les statuts sont
+ * clonés en profondeur : la résolution peut donc appliquer des statuts (ex.
+ * épuisement appliqué à un voisin par Plaquage lourd) SANS muter l'état réel.
+ * Cela garantit la pureté de resolveBoard, utilisée aussi par l'estimateur.
+ */
 function cloneForResolve(combatState) {
   return {
     ...combatState,
     duo: { ...combatState.duo },
     enemy: { ...combatState.enemy },
+    statuses: cloneStatuses(combatState.statuses),
   };
 }
 
@@ -112,10 +134,13 @@ export function resolveBoard(boardState, combatState) {
   // 1) Modificateurs de statuts, avant la résolution.
   applyModifiers(work);
 
-  const activations = [];
+  const activationByPos = {};
   for (const pos of RESOLUTION_ORDER) {
     const power = board[pos];
     if (!power) continue;
+
+    // Pouvoir épuisé : son customResolve n'est pas exécuté (aucun effet).
+    if (hasEntityStatus(work, power, EXHAUSTION_ID)) continue;
 
     const ctx = buildContext(pos, board, work);
     ctx.effects = []; // journal des effets de ce pouvoir (pour les messages)
@@ -124,9 +149,32 @@ export function resolveBoard(boardState, combatState) {
     // 2) Triggers de statuts, après chaque pouvoir résolu.
     evaluateTriggers(work, ctx);
 
-    if (ctx.effects.length > 0) {
-      activations.push({ position: pos, powerId: power.id, effects: ctx.effects });
+    activationByPos[pos] = { position: pos, powerId: power.id, effects: ctx.effects };
+  }
+
+  // 3) Finalisation des renforts (empowerNeighborsOfType) : appliqués APRÈS la
+  // boucle pour toucher tous les voisins concernés quel que soit l'ordre. Le
+  // bonus compte dans l'attaque du duo et est attribué au pouvoir renforcé.
+  if (work._attackBonus instanceof Map) {
+    for (const pos of RESOLUTION_ORDER) {
+      const power = board[pos];
+      if (!power || hasEntityStatus(work, power, EXHAUSTION_ID)) continue;
+      const bonus = work._attackBonus.get(power);
+      if (!bonus) continue;
+      work.duo.attack += bonus;
+      const act = activationByPos[pos]
+        ?? (activationByPos[pos] = { position: pos, powerId: power.id, effects: [] });
+      const existing = act.effects.find((e) => e.effect === 'add_attack');
+      if (existing) existing.value += bonus;
+      else act.effects.push({ effect: 'add_attack', value: bonus });
     }
+  }
+
+  // Activations dans l'ordre de résolution, seulement celles ayant des effets.
+  const activations = [];
+  for (const pos of RESOLUTION_ORDER) {
+    const act = activationByPos[pos];
+    if (act && act.effects.length > 0) activations.push(act);
   }
 
   const clamp = (n) => Math.max(0, n);

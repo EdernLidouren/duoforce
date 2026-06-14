@@ -14,9 +14,10 @@ Bibliothèque de helpers passés à chaque `customResolve(ctx)` de pouvoir. Le
 }
 ```
 
-> **Important :** `resolveBoard` travaille sur une **copie** du `combatState`.
-> Les helpers d'écriture mutent donc cette copie (les valeurs sont ensuite
-> commises par `resolveTurn`). Côté estimation, rien n'est corrompu.
+> **Important :** `resolveBoard` travaille sur une **copie** du `combatState`
+> (duo, enemy ET statuts sont clonés). Les helpers d'écriture mutent donc cette
+> copie ; les valeurs sont ensuite commises par `resolveTurn`. L'estimateur peut
+> appeler `resolveBoard` autant qu'il veut sans rien corrompre.
 >
 > Chaque helper d'écriture **mute `ctx.combatState` et ne retourne rien**. Il
 > enregistre aussi un descripteur `{ effect, value }` dans `ctx.effects` pour la
@@ -42,6 +43,10 @@ Disposition du plateau (index) :
 | `hasNeighborById` | `(ctx, id)` | `ctx.neighbors` | `true` s'il existe un voisin orthogonal de cet `id` |
 | `isIsolated` | `(ctx)` | `ctx.neighbors` | `true` si aucun voisin orthogonal |
 | `countNeighborsOfType` | `(ctx, type)` | `ctx.neighbors` | nombre de voisins de ce `type` |
+
+Pour lire une valeur de combat (rare), on accède directement à
+`ctx.combatState.duo` / `ctx.combatState.enemy` — ex. `impregnable` teste
+`ctx.combatState.duo.defense === 0`.
 
 ---
 
@@ -75,32 +80,67 @@ Tous mutent `ctx.combatState` et ne retournent rien. `n` est un nombre.
 > (contrairement à l'ancien modèle où tous les multiplicateurs étaient appliqués
 > en dernier).
 
+### Renforcer des voisins
+
+| Helper | Effet |
+|---|---|
+| `empowerNeighborsOfType(ctx, type, amount)` | Enregistre un bonus d'attaque de `amount` pour chaque voisin orthogonal du `type` donné. |
+
+Le bonus n'est pas appliqué immédiatement : il est consommé lors de la
+**finalisation** de `resolveBoard`, APRÈS la résolution de tous les pouvoirs.
+Cela garantit que **tous** les voisins concernés en profitent, quel que soit
+l'ordre de résolution. Le bonus compte dans l'attaque du duo et apparaît dans le
+message du voisin renforcé (fusionné à son `add_attack`), pas dans celui du
+pouvoir qui renforce. Exemple : `iron_grip_power` fait
+`empowerNeighborsOfType(ctx, 'offensive', 2)`.
+
+---
+
+## Appliquer un statut à un voisin (entité)
+
+Pour poser un statut sur un autre pouvoir du plateau, on importe `applyStatus`
+depuis `../../engine/statuses.js` et on vise l'objet pouvoir (target `'entity'`).
+L'immunité éventuelle est vérifiée par `applyStatus` (voir
+[`status-system.md`](./status-system.md)).
+
+```js
+import { getNeighbor, addAttack } from '../../engine/context.js';
+import { applyStatus } from '../../engine/statuses.js';
+
+// heavy_slam : +4 attaque, épuise le pouvoir directement en dessous.
+customResolve: (ctx) => {
+  addAttack(ctx, 4);
+  const below = getNeighbor(ctx, 'below');
+  if (below) {
+    applyStatus(ctx.combatState, {
+      id: 'power_exhaustion_status', stacks: 1, target: 'entity', entity: below,
+    });
+  }
+}
+```
+
 ---
 
 ## Exemple d'usage dans un `customResolve`
 
 ```js
 import { Rarity } from './rarity.js';
-import {
-  isInZone, hasNeighborOfType, hasNeighborById,
-  addAttack, removeAttack, multiplyAttack,
-} from '../../engine/context.js';
+import { getNeighbor, addAttack } from '../../engine/context.js';
 
-export const power_aerial_strike = {
-  id: 'power_aerial_strike',
+// force_palm : +3 attaque si un voisin de même ligne est offensif, +1 sinon.
+export const force_palm_power = {
+  id: 'force_palm_power',
   type: 'offensive',
-  rarity: Rarity.UNCOMMON,
+  rarity: Rarity.COMMON,
   customResolve: (ctx) => {
-    if (isInZone(ctx, [6, 7, 8])) addAttack(ctx, 4);          // +4 attaque dans le ciel
-    else if (isInZone(ctx, [0, 1, 2])) removeAttack(ctx, 1);  // -1 attaque en terre
-    else if (hasNeighborOfType(ctx, 'offensive')) addAttack(ctx, 2);
-    else addAttack(ctx, 2);
+    const left = getNeighbor(ctx, 'left');
+    const right = getNeighbor(ctx, 'right');
+    const sameRowOffensive =
+      (left && left.type === 'offensive') || (right && right.type === 'offensive');
+    addAttack(ctx, sameRowOffensive ? 3 : 1);
   },
 };
-
-// Un pouvoir qui double l'attaque s'il est à côté d'un bouclier :
-//   if (hasNeighborById(ctx, 'power_shield')) multiplyAttack(ctx, 2);
 ```
 
-Chaque branche n'appelle qu'un seul helper : la sémantique « première condition
-satisfaite » se traduit naturellement par des `if / else if / else`.
+Chaque branche n'appelle que les helpers nécessaires : la sémantique « première
+condition satisfaite » se traduit naturellement par des `if / else if / else`.

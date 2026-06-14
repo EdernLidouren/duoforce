@@ -21,22 +21,25 @@ the combat state through the helpers of [`context-api.md`](./context-api.md).
 
 ```js
 import { Rarity } from './rarity.js';
-import { isInZone, hasNeighborOfType, addAttack, removeAttack } from '../../engine/context.js';
+import { getNeighbor, addAttack } from '../../engine/context.js';
 
-export const power_aerial_strike = {
-  id: 'power_aerial_strike',
+export const force_palm_power = {
+  id: 'force_palm_power',
   type: 'offensive',          // 'offensive' | 'support' | 'special'
-  rarity: Rarity.UNCOMMON,    // integer 0–4, see rarity.js
+  rarity: Rarity.COMMON,      // integer 0–4, see rarity.js
   customResolve: (ctx) => {
-    if (isInZone(ctx, [6, 7, 8])) addAttack(ctx, 4);          // sky
-    else if (isInZone(ctx, [0, 1, 2])) removeAttack(ctx, 1);  // ground
-    else if (hasNeighborOfType(ctx, 'offensive')) addAttack(ctx, 2);
-    else addAttack(ctx, 2);
+    const left = getNeighbor(ctx, 'left');
+    const right = getNeighbor(ctx, 'right');
+    const sameRowOffensive =
+      (left && left.type === 'offensive') || (right && right.type === 'offensive');
+    addAttack(ctx, sameRowOffensive ? 3 : 1);
   },
 };
 ```
 
-Each power exports exactly one object. No DOM, no imports from `src/ui/`.
+Each power exports exactly one object. No DOM, no imports from `src/ui/`. A power
+may also carry plain flags read elsewhere — e.g. `immuneToExhaustion: true`
+(checked by `applyStatus`, see [`status-system.md`](./status-system.md)).
 
 ---
 
@@ -110,7 +113,12 @@ addEnemyAttack(ctx, n);  removeEnemyAttack(ctx, n);  multiplyEnemyAttack(ctx, n)
 addEnemyDefense(ctx, n); removeEnemyDefense(ctx, n); multiplyEnemyDefense(ctx, n);
 heal(ctx, n); enemyHeal(ctx, n);
 grantManeuver(ctx, n); grantStrategy(ctx, n); grantCredit(ctx, n);
+empowerNeighborsOfType(ctx, type, amount); // +attack bonus to neighbors (finalize)
 ```
+
+A power can also act on **other powers** via statuses (import `applyStatus` from
+`../../engine/statuses.js`), e.g. `heavy_slam_power` exhausts the power below it.
+See [`status-system.md`](./status-system.md) and [`context-api.md`](./context-api.md).
 
 ### "First condition wins"
 
@@ -135,24 +143,32 @@ place this in mind when designing `multiply*` powers.
 Statuses bracket the loop (see [`status-system.md`](./status-system.md)):
 
 1. `applyModifiers(work)` runs **before** any power resolves.
-2. each power's `customResolve(ctx)` runs in order.
+2. for each cell in order: if the power is **exhausted**
+   (`power_exhaustion_status`), its `customResolve` is **skipped** entirely
+   (no effect, no activation); otherwise `customResolve(ctx)` runs.
 3. `evaluateTriggers(work, ctx)` runs **after** each power.
+4. **Finalize:** any neighbor bonuses registered by `empowerNeighborsOfType`
+   are applied **after** the loop, so every targeted neighbor benefits
+   regardless of resolution order. Each bonus is added to the duo's attack and
+   merged into the empowered power's `add_attack` (for messages).
 
-`resolveBoard` works on a copy and returns the resolved values plus an
-activation log; `resolveTurn` (in `src/engine/combat.js`) commits those values,
-applies the damage phases, then calls `processTurnEnd`.
+`resolveBoard` works on a **deep copy** of the combat state — `duo`, `enemy` and
+**statuses** are all cloned. A status applied during resolution (e.g. exhaustion
+from `heavy_slam`) therefore lives on the copy: it affects the same resolution
+and is then discarded. This keeps `resolveBoard` pure, so the estimator can call
+it freely. `resolveTurn` (in `src/engine/combat.js`) commits the resolved
+values, applies the damage phases, then calls `processTurnEnd` on the real state.
 
 ---
 
 ## Deck manipulation — not yet available
 
-The previous model documented `draw` / `discard` / `exile` effects with
-positional targets (`self`, `left`, `row`, `col`, …). `context.js` exposes **no
-deck-manipulation helper yet**, so powers that used to draw/discard/exile have
-been re-themed to combat-value, resource, or enemy-debuff effects (see
-`power_disrupt`, `power_tactician`, `power_sabotage`). Add the helpers to
-`context.js` first if/when deck manipulation is reintroduced, and update this
-section and `context-api.md` together.
+An earlier model documented `draw` / `discard` / `exile` effects with positional
+targets (`self`, `left`, `row`, `col`, …). `context.js` exposes **no
+deck-manipulation helper yet**, so the current powers act only on combat values,
+resources, the enemy, or other powers (statuses). Add the helpers to `context.js`
+first if/when deck manipulation is reintroduced, and update this section and
+`context-api.md` together.
 
 ---
 
@@ -164,3 +180,7 @@ section and `context-api.md` together.
 - Power names and descriptions are localized string ids (see the language
   packs `powers` table); descriptions must mirror the actual `customResolve`
   branches.
+- `buildDeck` (in `src/engine/combat.js`) instantiates each deck card as a
+  **distinct copy** of its power definition. Two cards of the same id are
+  separate objects, so per-instance mechanics (exhaustion, neighbor empowerment)
+  never collide.

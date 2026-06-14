@@ -165,42 +165,64 @@ export default {
 
   // Nom + description de chaque pouvoir (indexés par id).
   powers: {
-    power_aerial_strike: {
-      name: 'Frappe aérienne',
-      description: '+4 attaque dans le ciel, -1 attaque en terre, +2 attaque sinon.',
+    helmbutt_power: {
+      name: 'Coup de casque',
+      description: '+2 attaque.',
     },
-    power_shield: {
-      name: 'Bouclier',
-      description: '+3 défense à gauche, -1 défense à droite, +1 défense sinon.',
+    iron_grip_power: {
+      name: 'Poigne de fer',
+      description: 'Les pouvoirs offensifs voisins infligent +2 dégâts.',
     },
-    power_phalanx: {
-      name: 'Phalange',
-      description: '+3 défense près d’un soutien, ×2 défense dans la colonne centrale, +1 défense sinon.',
+    shield_charge_power: {
+      name: 'Charge au bouclier',
+      description: '+1 attaque, +1 défense.',
     },
-    power_vanguard: {
-      name: 'Avant-garde',
-      description: '+5 attaque à côté d’un bouclier, ×2 attaque dans les coins, +2 attaque sinon.',
+    metalloy_power: {
+      name: 'Métalliage',
+      description: '+2 défense.',
     },
-    power_disrupt: {
-      name: 'Perturbation',
-      description: '-3 attaque adverse près d’un spécial, -2 défense adverse dans la colonne centrale, -1 attaque adverse sinon.',
+    heavy_slam_power: {
+      name: 'Plaquage lourd',
+      description: '+4 attaque, épuise le pouvoir en dessous pendant un tour.',
     },
-    power_curse: {
-      name: 'Malédiction',
-      description: '×0 défense adverse au centre, +1 défense adverse près d’un offensif, ×2 attaque adverse en terre, +1 attaque adverse sinon.',
+    force_palm_power: {
+      name: 'Paume de force',
+      description: '+3 attaque près d’un pouvoir offensif sur la même ligne, +1 attaque sinon.',
     },
-    power_medic: {
-      name: 'Médic',
-      description: '+3 points de vie près d’un soutien, +1 manœuvre en terre, +1 stratégie sinon.',
+    close_protection_power: {
+      name: 'Protection rapprochée',
+      description: '+1 défense, et +1 crédit par pouvoir de soutien sur la même ligne.',
     },
-    power_tactician: {
-      name: 'Tacticien',
-      description: '+1 crédit sur la case centrale, +1 stratégie si isolé, +1 manœuvre sinon.',
+    impregnable_power: {
+      name: 'Imprenable',
+      description: '+3 défense si la défense est nulle, +1 défense sinon.',
     },
-    power_sabotage: {
-      name: 'Sabotage',
-      description: '-2 défense adverse près d’un offensif, -1 attaque adverse dans la colonne de droite, +1 attaque sinon.',
+    lead_boots_power: {
+      name: 'Bottes de plomb',
+      description: '+2 défense et +1 attaque dans la rangée du bas, aucun effet sinon.',
     },
+    iron_will_power: {
+      name: 'Volonté de fer',
+      description: '+1 défense. Immunisé contre l’épuisement.',
+    },
+  },
+
+  // Nom + description de chaque statut (indexés par id). {compteur} = stacks
+  // courants, interpolé à l'affichage (voir src/ui/format.js).
+  statuses: {
+    power_exhaustion_status: {
+      name: 'épuisement',
+      description: 'Empêche l’activation de tout effet.',
+    },
+    hero_poison_status: {
+      name: 'poison',
+      description: 'À la fin du tour, inflige {compteur} dégâts imblocables puis réduit de 1.',
+    },
+  },
+
+  // Noms des héros (indexés par nameId).
+  heroes: {
+    hero_paladium: 'Paladium',
   },
 
   // Noms des ennemis (indexés par nameId).

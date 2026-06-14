@@ -52,15 +52,19 @@ export function shuffle(array, rng = Math.random) {
 
 /**
  * Construit le deck combiné de plusieurs héros (ids → objets pouvoir).
- * Les ids inconnus sont ignorés.
+ * Les ids inconnus sont ignorés. Chaque entrée est une COPIE distincte de la
+ * définition du pouvoir : deux cartes du même id sont ainsi des instances
+ * séparées, ce qui garantit que les mécaniques indexées par instance (épuisement
+ * d'un pouvoir, renfort d'un voisin) ne se télescopent jamais.
  * @param {Array} heroes
- * @returns {Array} liste de pouvoirs (avec doublons)
+ * @returns {Array} liste de pouvoirs (instances, avec doublons possibles)
  */
 export function buildDeck(heroes) {
   return heroes
     .flatMap((hero) => hero.starting_powers)
     .map((id) => getPowerById(id))
-    .filter((power) => power != null);
+    .filter((power) => power != null)
+    .map((power) => ({ ...power }));
 }
 
 /** Construit l'état initial de l'ennemi. */

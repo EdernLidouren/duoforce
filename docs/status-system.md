@@ -1,19 +1,19 @@
 # Système de statuts (`src/engine/statuses.js`)
 
-Un **status** est un état persistant attaché au duo, à l'ennemi, ou à une entité
-(pouvoir/sidekick/gadget). Il influence le combat via des modificateurs (chaque
-tour), des triggers (en cours de tour), et une logique de fin de tour.
+Un **status** est un état attaché au duo, à l'ennemi, ou à une entité (un pouvoir
+sur le plateau). Il influence le combat via des modificateurs (chaque tour), des
+triggers (en cours de tour), et une logique de fin de tour.
 
 ## Instance de status (en jeu)
 
 Objet minimal stocké dans le `combatState` :
 
 ```js
-{
-  id: string,      // référence à la définition
-  stacks: number,  // valeur unique — sémantique définie par la définition
-  target: 'duo' | 'enemy' | 'entity',
-}
+// cible duo / enemy
+{ id: string, stacks: number, target: 'duo' | 'enemy' }
+
+// cible entity (un pouvoir) — porte en plus une référence à l'objet visé
+{ id: string, stacks: number, target: 'entity', entity: object }
 ```
 
 ## Sémantique de `stacks`
@@ -22,15 +22,14 @@ Objet minimal stocké dans le `combatState` :
 *Slay the Spire*) :
 
 - **Intensité** — ex. Poison : `stacks` = dégâts infligés chaque fin de tour.
-- **Durée** — ex. Fatigue : `stacks` = nombre de tours restants, décrémenté à
+- **Durée** — ex. Épuisement : `stacks` = nombre de tours restants, décrémenté à
   chaque fin de tour, expire à 0.
 - **Les deux** — un status peut interpréter `stacks` comme intensité *et* durée
-  (ex. décrémenter ET infliger `stacks` dégâts). C'est à la définition de
-  décider, dans ses `modifiers` / `triggers` / `onTurnEnd`.
+  (ex. infliger `stacks` dégâts ET décrémenter — cf. le Poison ci-dessous).
 
-Le moteur n'impose aucune sémantique : il ne fait que stocker la valeur,
-l'exposer aux fonctions de la définition, et **retirer le status quand
-`stacks <= 0`** après la fin de tour.
+Le moteur n'impose aucune sémantique : il stocke la valeur, l'expose aux
+fonctions de la définition, et **retire le status quand `stacks <= 0`** après la
+fin de tour.
 
 ## Définition de status (`src/data/statuses/`)
 
@@ -38,11 +37,15 @@ l'exposer aux fonctions de la définition, et **retirer le status quand
 {
   id: string,
   stackable: boolean,        // réappliquer cumule les stacks (true) ou remplace (false)
+  immunityFlag?: string,     // (entity) drapeau d'immunité vérifié sur l'entité visée
   modifiers: [],             // appliqués chaque tour, avant la résolution
   triggers: [],              // effets conditionnels évalués après chaque pouvoir
   onTurnEnd: (status, combatState) => void,  // dégâts, décrément, expiration...
 }
 ```
+
+Les définitions ne portent **pas** de `target` : c'est l'instance qui le porte,
+fixé au moment de l'application.
 
 ### Modifier
 
@@ -58,7 +61,8 @@ Altère une propriété du sujet (`combatState[target]`, soit `duo` soit `enemy`
 
 `applyModifiers` applique, pour chaque status actif, chaque modifier :
 `subject[property]` ← `+ value(stacks)` (add) / `* value(stacks)` (multiply) /
-`= value(stacks)` (override).
+`= value(stacks)` (override). Les statuts d'entité (pas de `combatState['entity']`)
+sont ignorés par `applyModifiers`.
 
 ### Trigger
 
@@ -72,9 +76,16 @@ Conditionne un effet à une situation :
 ```
 
 `evaluateTriggers` est appelé **après chaque pouvoir résolu** : un trigger dont
-la `condition` est vraie déclenche son `effect` (qui mute le contexte courant).
-Un trigger peut donc se déclencher plusieurs fois dans un même tour — à la
-définition d'en tenir compte.
+la `condition` est vraie déclenche son `effect`. Un trigger peut donc se
+déclencher plusieurs fois dans un même tour — à la définition d'en tenir compte.
+
+### Immunité (`immunityFlag`)
+
+Si une définition déclare `immunityFlag: 'xxx'`, alors `applyStatus` **refuse**
+d'appliquer ce status à une entité qui porte ce drapeau à `true`. Exemple :
+`power_exhaustion_status` a `immunityFlag: 'immuneToExhaustion'`, et
+`iron_will_power` porte `immuneToExhaustion: true` → il ne peut jamais être
+épuisé.
 
 ## Stockage
 
@@ -83,75 +94,92 @@ combatState.statuses = { duo: [], enemy: [], entities: Map }
 ```
 
 - `duo` / `enemy` : tableaux d'instances.
-- `entities` : `Map` indexée par id de status (support minimal des statuts
-  d'entité — l'API actuelle ne porte pas d'identité d'entité distincte).
+- `entities` : **Map indexée par l'objet visé** (un pouvoir) → **tableau
+  d'instances**. Plusieurs entités peuvent donc être statutées simultanément, et
+  chacune peut porter plusieurs statuts.
+
+> Les pouvoirs sont **instanciés en copies distinctes** à la construction du deck
+> (`buildDeck`, cf. `src/engine/combat.js`). Deux cartes du même id sont donc des
+> objets séparés : l'indexation par instance dans `entities` ne se télescope
+> jamais.
 
 ## Fonctions exposées
 
 | Fonction | Rôle |
 |---|---|
-| `applyStatus(combatState, statusInstance)` | Ajoute le status ; s'il est déjà présent, **cumule** les stacks si `stackable`, **remplace** sinon. |
-| `removeStatus(combatState, statusId, target)` | Retire un status d'une cible. |
-| `hasStatus(combatState, statusId, target)` | `true` si le status est présent sur la cible. |
-| `getStacks(combatState, statusId, target)` | Stacks du status sur la cible, ou `0`. |
+| `applyStatus(combatState, instance)` | Applique un status (duo/enemy ou entity). Cumule si `stackable`, sinon remplace. Pour `entity`, requiert `instance.entity` et respecte `immunityFlag`. |
+| `removeStatus(combatState, statusId, target)` | Retire un status d'une cible `duo`/`enemy`. |
+| `removeEntityStatus(combatState, entity, statusId)` | Retire un status d'une entité. |
+| `hasStatus(combatState, statusId, target)` | `true` si le status est présent sur `duo`/`enemy`. |
+| `hasEntityStatus(combatState, entity, statusId)` | `true` si l'entité porte ce status. |
+| `getStacks(combatState, statusId, target)` | Stacks sur `duo`/`enemy`, ou `0`. |
+| `getEntityStacks(combatState, entity, statusId)` | Stacks sur une entité, ou `0`. |
 | `applyModifiers(combatState)` | Applique tous les modificateurs actifs (appelé par `resolveBoard` avant la résolution). |
 | `evaluateTriggers(combatState, ctx)` | Évalue/déclenche les triggers actifs (appelé par `resolveBoard` après chaque pouvoir). |
 | `processTurnEnd(combatState)` | Appelle `onTurnEnd` de chaque status, puis retire ceux dont les stacks `<= 0` (appelé par `combat.js` en fin de tour). |
 
 ## Intégration dans la boucle de combat
 
-1. **Avant la résolution** — `resolveBoard` appelle `applyModifiers` (sur sa
-   copie de travail).
-2. **Pendant la résolution** — après chaque pouvoir, `resolveBoard` appelle
-   `evaluateTriggers`.
+1. **Avant la résolution** — `resolveBoard` (sur sa copie de travail, statuts
+   inclus) appelle `applyModifiers`.
+2. **Pendant la résolution** — un pouvoir **épuisé** (portant
+   `power_exhaustion_status`) voit son `customResolve` **sauté** ; après chaque
+   pouvoir résolu, `evaluateTriggers` est appelé.
 3. **En fin de tour** — `combat.js` (`resolveTurn`) appelle `processTurnEnd`
    après les phases de dégâts, puis ré-évalue victoire/défaite (un statut a pu
    faire tomber des PV).
 
+> **Portée des statuts d'entité.** `resolveBoard` clone les statuts en
+> profondeur (pureté pour l'estimateur). Un statut posé sur un pouvoir *pendant*
+> la résolution (ex. épuisement par `heavy_slam`) vit donc sur la copie : il
+> agit dans la même résolution (le pouvoir visé est sauté) puis est jeté. Comme
+> le plateau est entièrement redistribué à chaque début de tour, c'est la portée
+> voulue (effet intra-tour).
+
 ---
 
-## Exemple 1 — Fatigue 3 (durée)
+## Exemple 1 — Épuisement (`power_exhaustion_status`, durée, entité)
 
-Malus de défense **fixe** tant qu'elle est active ; `stacks` = tours restants,
-décrémenté chaque fin de tour, expire à 0.
+Empêche l'activation d'un pouvoir. `stacks` = tours restants ; le saut du
+`customResolve` est assuré par `resolveBoard`. La définition ne gère que la
+durée. Le drapeau d'immunité protège certains pouvoirs.
 
 ```js
-// src/data/statuses/status_fatigue.js
-export const status_fatigue = {
-  id: 'status_fatigue',
-  stackable: false,                 // réappliquer remet la durée (ne cumule pas)
-  modifiers: [
-    { property: 'defense', operation: 'add', value: () => -2 }, // malus FIXE
-  ],
+// src/data/statuses/power_exhaustion_status.js
+export const power_exhaustion_status = {
+  id: 'power_exhaustion_status',
+  stackable: false,                    // réappliquer réinitialise la durée
+  immunityFlag: 'immuneToExhaustion',  // un pouvoir avec ce drapeau est immunisé
+  modifiers: [],
   triggers: [],
-  onTurnEnd: (status) => {
-    status.stacks -= 1;             // décrément de durée ; retiré à 0 par le moteur
-  },
+  onTurnEnd: (status) => { status.stacks -= 1; },
 };
 ```
 
-Application : `applyStatus(combatState, { id: 'status_fatigue', stacks: 3, target: 'duo' })`.
-Chaque tour : `-2` défense ; après 3 fins de tour, le status expire.
+Application (par `heavy_slam_power`) :
+`applyStatus(combatState, { id: 'power_exhaustion_status', stacks: 1, target: 'entity', entity: pouvoirEnDessous })`.
 
-## Exemple 2 — Poison 3 (intensité)
+## Exemple 2 — Poison (`hero_poison_status`, intensité + durée)
 
-Inflige `stacks` dégâts chaque fin de tour, **sans décrémentation automatique**
-— c'est au poison de décider s'il se réduit (ici il persiste).
+Inflige `stacks` dégâts **imblocables** (ils ignorent la défense) en fin de tour,
+puis s'estompe de 1.
 
 ```js
-// src/data/statuses/status_poison.js
-export const status_poison = {
-  id: 'status_poison',
-  stackable: true,                  // réappliquer cumule l'intensité
+// src/data/statuses/hero_poison_status.js
+export const hero_poison_status = {
+  id: 'hero_poison_status',
+  stackable: true,                     // réappliquer cumule l'intensité
   modifiers: [],
   triggers: [],
   onTurnEnd: (status, combatState) => {
     const subject = combatState[status.target];   // duo / enemy
-    if (subject) subject.hp -= status.stacks;      // dégâts = stacks, pas de décrément
+    if (subject) subject.hp -= status.stacks;     // dégâts directs, ignorent la défense
+    status.stacks -= 1;                            // le poison s'estompe
   },
 };
 ```
 
-Application : `applyStatus(combatState, { id: 'status_poison', stacks: 3, target: 'enemy' })`.
-Chaque tour : l'ennemi perd 3 PV ; le poison reste à 3 jusqu'à retrait explicite.
-Réappliquer Poison 2 (stackable) le porte à 5.
+Application :
+`applyStatus(combatState, { id: 'hero_poison_status', stacks: 3, target: 'enemy' })`.
+Tour 1 : −3 PV, stacks → 2 ; tour 2 : −2, → 1 ; tour 3 : −1, → 0 (retiré).
+Réappliquer Poison 2 (stackable) cumule l'intensité restante.

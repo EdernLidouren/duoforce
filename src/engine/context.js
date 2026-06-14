@@ -123,6 +123,24 @@ export function enemyHeal(ctx, n) {
   record(ctx, 'enemy_heal', n);
 }
 
+/**
+ * Renforce les voisins orthogonaux d'un type donné : enregistre un bonus
+ * d'attaque qui sera attribué à CHAQUE voisin au moment où la résolution se
+ * finalise (cf. resolveBoard), indépendamment de l'ordre de résolution. Le bonus
+ * compte donc dans l'attaque du duo et apparaît dans le message du voisin, pas
+ * dans celui du pouvoir qui renforce.
+ * @param {object} ctx
+ * @param {string} type   type de pouvoir voisin à renforcer (ex. 'offensive')
+ * @param {number} amount bonus d'attaque par voisin concerné
+ */
+export function empowerNeighborsOfType(ctx, type, amount) {
+  const cs = ctx.combatState;
+  if (!(cs._attackBonus instanceof Map)) cs._attackBonus = new Map();
+  for (const n of ctx.neighbors) {
+    if (n.type === type) cs._attackBonus.set(n, (cs._attackBonus.get(n) ?? 0) + amount);
+  }
+}
+
 export function grantManeuver(ctx, n) {
   ctx.combatState.duo.maneuver += n;
   record(ctx, 'maneuver', n);

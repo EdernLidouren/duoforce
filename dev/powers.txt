@@ -1,16 +1,74 @@
-{
-  id: "power_aerial_strike",
-  type: "offensive", // "offensive" | "support" | "special"
+Statuts :
 
-  // Declarative rules, evaluated in order. First matching condition wins.
-  // Each rule: { condition, effect, value }
-  rules: [
-    { condition: "row_top",    effect: "attack", value: 4 },
-    { condition: "row_bottom", effect: "attack", value: 0 },
-    { condition: "default",    effect: "attack", value: 2 },
-  ],
+id : power_exhaustion_status
+nom (fr, en) : épuisement, exhaustion
+Cibles possibles : Pouvoirs
+Description mécanique : Statut simple qui annule les effets du pouvoir affecté. Compteur = tours restants avant suppression, décrémente de 1 à chaque fin de tour. Ce n'est pas ce statut qui est utilisé après activation d'un pouvoir lors de la résolution du plateau.
+description en jeu : Empêche l'activation de tout effet.
 
-  // Optional. If present, overrides rules entirely.
-  // Receives context, returns an array of { effect, value }.
-  customResolve: null,
-}
+id : hero_poison_status
+nom (fr, en) : poison, poison
+Cibles possibles : Héros (ennemi, duo)
+Description mécanique : En fin de tour, inflige un nombre de dégâts imbloquables égal au compteur au héros affecté, puis décrémente de 1.
+description en jeu : À la fin du tour, inflige {compteur} dégâts imbloquables puis réduit de 1."
+
+
+pouvoirs :
+
+id : helmbutt_power
+nom (fr, en) : Coup de casque, helmbutt
+Description mécanique : attaque +2
+Description en jeu : Attaque +2
+
+
+id : iron_grip_power
+nom (fr, en) : Poigne de fer, iron grip
+Description mécanique : Les pouvoirs adjacents de type offensif infligent +2 dégâts.
+Description en jeu : Les pouvoirs adjacents de type offensif infligent +2 dégâts.
+
+id : shield_charge_power
+nom (fr, en) : Charge au bouclier, shield charge
+Description mécanique : +1 attaque et +1 défense.
+Description en jeu : +1 attaque et +1 défense.
+
+id : metalloy_power
+nom (fr, en) : Métalliage, metalloy
+Description mécanique : +2 défense
+Description en jeu : +2 défense
+
+id : heavy_slam_power
+nom (fr, en) : Plaquage lourd, heavy slam
+Description mécanique : +4 attaque. +1 statut épuisement au pouvoir adjacent sous lui.
+Description en jeu : +4 attaque et +1 statut épuisement au premier pouvoir en dessous.
+
+id : force_palm_power
+nom (fr, en) : Paume de force, force palm
+Description mécanique : +1 attaque. ou +3 attaque si un pouvoir adjacent sur la ligne est de type offensif.
+Description en jeu : +3 attaque si un pouvoir adjacent de type offensif sur la même ligne, +1 attaque sinon.
+
+id : close_protection_power
+nom (fr, en) : Protection rapprochée, close protection
+Description mécanique : +1 défense, et +1 crédit par pouvoir adjacent sur la même ligne de type soutien.
+Description en jeu : +1 défense, et +1 crédit par pouvoir adjacent de type soutien sur la même ligne.
+
+id : impregnable_power
+nom (fr, en) : Imprenable, impregnable
+Description mécanique : +3 défense si la défense du duo vaut 0, +1 défense sinon
+Description en jeu : +3 défense si votre défense vaut 0, ou +1 défense sinon.
+
+id : lead_boots_power
+nom (fr, en) : Bottes de plomb, lead boots
+Description mécanique : +2 défense et +1 attaque si sur la ligne du bas, aucun effet sinon
+Description en jeu : +2 défense et +1 attaque si sur terre.
+
+id : iron_will_power
+nom (fr, en) : Volonté de fer, iron will
+Description mécanique : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif (épuisement).
+Description en jeu : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif.
+
+
+Héros :
+
+id : paladium_hero
+nom (fr, en) : Paladium, Paladium
+pouvoirs de départ : iron_will, impregnable, helmbutt, iron_grip, shield_charge, metalloy, heavy_slam, force_palm, close_protection, lead_boots

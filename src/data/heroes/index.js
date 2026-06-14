@@ -2,14 +2,11 @@
 //
 // Chaque héros vit dans son propre fichier (nommé d'après son id). Cet index les
 // rassemble dans le tableau HEROES et fournit l'accès indexé getHeroById.
-// Contrainte respectée : deck combiné des deux héros >= 15 cartes (8 + 8 = 16).
 
-import { hero_atlas } from './hero_atlas.js';
-import { hero_nova } from './hero_nova.js';
+import { hero_paladium } from './hero_paladium.js';
 
 export const HEROES = [
-  hero_atlas,
-  hero_nova,
+  hero_paladium,
 ];
 
 /** Index id → héros. */

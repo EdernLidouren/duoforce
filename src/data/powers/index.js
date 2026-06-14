@@ -7,28 +7,30 @@
 // Le NOM et la DESCRIPTION d'un pouvoir ne sont PAS ici : ce sont des chaînes
 // localisées (pack `powers`), assemblées par src/ui/powerText.js.
 
-import { power_aerial_strike } from './power_aerial_strike.js';
-import { power_shield } from './power_shield.js';
-import { power_phalanx } from './power_phalanx.js';
-import { power_vanguard } from './power_vanguard.js';
-import { power_disrupt } from './power_disrupt.js';
-import { power_curse } from './power_curse.js';
-import { power_medic } from './power_medic.js';
-import { power_tactician } from './power_tactician.js';
-import { power_sabotage } from './power_sabotage.js';
+import { helmbutt_power } from './helmbutt_power.js';
+import { iron_grip_power } from './iron_grip_power.js';
+import { shield_charge_power } from './shield_charge_power.js';
+import { metalloy_power } from './metalloy_power.js';
+import { heavy_slam_power } from './heavy_slam_power.js';
+import { force_palm_power } from './force_palm_power.js';
+import { close_protection_power } from './close_protection_power.js';
+import { impregnable_power } from './impregnable_power.js';
+import { lead_boots_power } from './lead_boots_power.js';
+import { iron_will_power } from './iron_will_power.js';
 
 export { Rarity } from './rarity.js';
 
 export const POWERS = [
-  power_aerial_strike,
-  power_shield,
-  power_phalanx,
-  power_vanguard,
-  power_disrupt,
-  power_curse,
-  power_medic,
-  power_tactician,
-  power_sabotage,
+  helmbutt_power,
+  iron_grip_power,
+  shield_charge_power,
+  metalloy_power,
+  heavy_slam_power,
+  force_palm_power,
+  close_protection_power,
+  impregnable_power,
+  lead_boots_power,
+  iron_will_power,
 ];
 
 /** Index id → pouvoir, construit une fois. */

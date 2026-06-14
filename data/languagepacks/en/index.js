@@ -157,42 +157,64 @@ export default {
   },
 
   powers: {
-    power_aerial_strike: {
-      name: 'Aerial Strike',
-      description: '+4 attack in the sky, -1 attack on the ground, +2 attack otherwise.',
+    helmbutt_power: {
+      name: 'helmbutt',
+      description: '+2 attack.',
     },
-    power_shield: {
-      name: 'Shield',
-      description: '+3 defense on the left, -1 defense on the right, +1 defense otherwise.',
+    iron_grip_power: {
+      name: 'iron grip',
+      description: 'Adjacent offensive powers deal +2 damage.',
     },
-    power_phalanx: {
-      name: 'Phalanx',
-      description: '+3 defense near a support power, ×2 defense in the center column, +1 defense otherwise.',
+    shield_charge_power: {
+      name: 'shield charge',
+      description: '+1 attack, +1 defense.',
     },
-    power_vanguard: {
-      name: 'Vanguard',
-      description: '+5 attack next to a shield, ×2 attack in the corners, +2 attack otherwise.',
+    metalloy_power: {
+      name: 'metalloy',
+      description: '+2 defense.',
     },
-    power_disrupt: {
-      name: 'Disrupt',
-      description: '-3 enemy attack near a special power, -2 enemy defense in the center column, -1 enemy attack otherwise.',
+    heavy_slam_power: {
+      name: 'heavy slam',
+      description: '+4 attack, exhausts the power below for one turn.',
     },
-    power_curse: {
-      name: 'Curse',
-      description: '×0 enemy defense in the center, +1 enemy defense near an offensive power, ×2 enemy attack on the ground, +1 enemy attack otherwise.',
+    force_palm_power: {
+      name: 'force palm',
+      description: '+3 attack next to an offensive power on the same row, +1 attack otherwise.',
     },
-    power_medic: {
-      name: 'Medic',
-      description: '+3 hit points near a support power, +1 maneuver on the ground, +1 strategy otherwise.',
+    close_protection_power: {
+      name: 'close protection',
+      description: '+1 defense, and +1 credit per support power on the same row.',
     },
-    power_tactician: {
-      name: 'Tactician',
-      description: '+1 credit on the center cell, +1 strategy when isolated, +1 maneuver otherwise.',
+    impregnable_power: {
+      name: 'impregnable',
+      description: '+3 defense if defense is zero, +1 defense otherwise.',
     },
-    power_sabotage: {
-      name: 'Sabotage',
-      description: '-2 enemy defense near an offensive power, -1 enemy attack in the right column, +1 attack otherwise.',
+    lead_boots_power: {
+      name: 'lead boots',
+      description: '+2 defense and +1 attack on the bottom row, no effect otherwise.',
     },
+    iron_will_power: {
+      name: 'iron will',
+      description: '+1 defense. Immune to exhaustion.',
+    },
+  },
+
+  // Name + description of each status (indexed by id). {compteur} = current
+  // stacks, interpolated at display time (see src/ui/format.js).
+  statuses: {
+    power_exhaustion_status: {
+      name: 'exhaustion',
+      description: 'Prevents any effect from activating.',
+    },
+    hero_poison_status: {
+      name: 'poison',
+      description: 'At the end of the turn, deals {compteur} unblockable damage, then decreases by 1.',
+    },
+  },
+
+  // Hero names (indexed by nameId).
+  heroes: {
+    hero_paladium: 'Paladium',
   },
 
   enemies: {

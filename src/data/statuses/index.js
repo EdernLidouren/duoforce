@@ -1,15 +1,16 @@
 // src/data/statuses/index.js — Regroupe et réexporte les définitions de statuts.
 //
-// Une définition décrit le comportement d'un status (modifiers / triggers /
-// onTurnEnd). Les instances en jeu ne portent que { id, stacks, target } et
-// retrouvent leur définition par id via getStatusDefById.
+// Une définition décrit le comportement d'un status (stackable / modifiers /
+// triggers / onTurnEnd / immunityFlag). Les instances en jeu portent
+// { id, stacks, target } (+ `entity` pour les statuts d'entité) et retrouvent
+// leur définition par id via getStatusDefById.
 
-import { status_fatigue } from './status_fatigue.js';
-import { status_poison } from './status_poison.js';
+import { power_exhaustion_status } from './power_exhaustion_status.js';
+import { hero_poison_status } from './hero_poison_status.js';
 
 export const STATUSES = [
-  status_fatigue,
-  status_poison,
+  power_exhaustion_status,
+  hero_poison_status,
 ];
 
 /** Index id → définition de status. */
