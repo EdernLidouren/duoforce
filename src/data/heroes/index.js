@@ -4,9 +4,11 @@
 // rassemble dans le tableau HEROES et fournit l'accès indexé getHeroById.
 
 import { hero_paladium } from './hero_paladium.js';
+import { hero_mindel } from './hero_mindel.js';
 
 export const HEROES = [
   hero_paladium,
+  hero_mindel,
 ];
 
 /** Index id → héros. */

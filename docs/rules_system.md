@@ -38,7 +38,7 @@ export const force_palm_power = {
 ```
 
 Each power exports exactly one object. No DOM, no imports from `src/ui/`. A power
-may also carry plain flags read elsewhere — e.g. `immuneToExhaustion: true`
+may also carry plain flags read elsewhere — e.g. `immuneToNegativeStatus: true`
 (checked by `applyStatus`, see [`status-system.md`](./status-system.md)).
 
 ---

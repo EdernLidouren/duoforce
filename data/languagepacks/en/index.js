@@ -159,7 +159,7 @@ export default {
   powers: {
     helmbutt_power: {
       name: 'helmbutt',
-      description: '+2 attack.',
+      description: 'Attack +2',
     },
     iron_grip_power: {
       name: 'iron grip',
@@ -167,35 +167,75 @@ export default {
     },
     shield_charge_power: {
       name: 'shield charge',
-      description: '+1 attack, +1 defense.',
+      description: '+1 attack and +1 defense.',
     },
     metalloy_power: {
       name: 'metalloy',
-      description: '+2 defense.',
+      description: '+2 defense',
     },
     heavy_slam_power: {
       name: 'heavy slam',
-      description: '+4 attack, exhausts the power below for one turn.',
+      description: '+4 attack and +1 exhaustion status to the first power below.',
     },
     force_palm_power: {
       name: 'force palm',
-      description: '+3 attack next to an offensive power on the same row, +1 attack otherwise.',
+      description: '+3 attack if an adjacent offensive power is on the same row, +1 attack otherwise.',
     },
     close_protection_power: {
       name: 'close protection',
-      description: '+1 defense, and +1 credit per support power on the same row.',
+      description: '+1 defense, and +1 credit per adjacent support power on the same row.',
     },
     impregnable_power: {
       name: 'impregnable',
-      description: '+3 defense if defense is zero, +1 defense otherwise.',
+      description: '+3 defense if your defense is 0, or +1 defense otherwise.',
     },
     lead_boots_power: {
       name: 'lead boots',
-      description: '+2 defense and +1 attack on the bottom row, no effect otherwise.',
+      description: '+2 defense and +1 attack if on the ground.',
     },
     iron_will_power: {
       name: 'iron will',
-      description: '+1 defense. Immune to exhaustion.',
+      description: '+1 defense. This power and this area cannot be affected by a negative status.',
+    },
+    arctic_veil_power: {
+      name: 'arctic veil',
+      description: '+1 defense, +1 maneuver and +1 freeze status on this area.',
+    },
+    blizzard_power: {
+      name: 'blizzard',
+      description: 'If on the surface or sky and you have at least 1 maneuver, +5 attack and -1 maneuver. Otherwise +2 attack.',
+    },
+    'cool-headed_power': {
+      name: 'cool-headed',
+      description: '+1 defense if an adjacent power is offensive. Otherwise +1 strategy.',
+    },
+    frozen_lace_power: {
+      name: 'frozen lace',
+      description: 'If this area has the freeze status, +3 credit. Otherwise +1 credit.',
+    },
+    icy_step_power: {
+      name: 'icy step',
+      description: 'If on the ground, +1 defense and +1 maneuver, and +1 freeze status on this area. Otherwise +1 defense.',
+    },
+    winter_dress_power: {
+      name: 'winter dress',
+      description: 'For this area and each adjacent area with the freeze status, +1 credit and +1 defense.',
+    },
+    gravity_beam_power: {
+      name: 'gravity beam',
+      description: 'For each power above in the column, +3 attack and +1 anchor status to each of them.',
+    },
+    weightlessness_power: {
+      name: 'weightlessness',
+      description: 'If on the ground or surface, +1 maneuver. Otherwise +1 strategy. No effect if this area has the anchor status.',
+    },
+    snow_dance_power: {
+      name: 'snow dance',
+      description: '+1 credit for each maneuver you have, up to 3.',
+    },
+    icycle_power: {
+      name: 'icycle',
+      description: 'If an adjacent area has the freeze status, +3 attack. Otherwise +1 attack. In all cases, +1 freeze status on this area.',
     },
   },
 
@@ -223,6 +263,7 @@ export default {
   // Hero names (indexed by nameId).
   heroes: {
     hero_paladium: 'Paladium',
+    hero_mindel: 'Mindel',
   },
 
   // Name + description of each signature (perk), indexed by id.

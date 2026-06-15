@@ -167,43 +167,83 @@ export default {
   powers: {
     helmbutt_power: {
       name: 'Coup de casque',
-      description: '+2 attaque.',
+      description: 'Attaque +2',
     },
     iron_grip_power: {
       name: 'Poigne de fer',
-      description: 'Les pouvoirs offensifs voisins infligent +2 dégâts.',
+      description: 'Les pouvoirs adjacents de type offensif infligent +2 dégâts.',
     },
     shield_charge_power: {
       name: 'Charge au bouclier',
-      description: '+1 attaque, +1 défense.',
+      description: '+1 attaque et +1 défense.',
     },
     metalloy_power: {
       name: 'Métalliage',
-      description: '+2 défense.',
+      description: '+2 défense',
     },
     heavy_slam_power: {
       name: 'Plaquage lourd',
-      description: '+4 attaque, épuise le pouvoir en dessous pendant un tour.',
+      description: '+4 attaque et +1 statut épuisement au premier pouvoir en dessous.',
     },
     force_palm_power: {
       name: 'Paume de force',
-      description: '+3 attaque près d’un pouvoir offensif sur la même ligne, +1 attaque sinon.',
+      description: '+3 attaque si un pouvoir adjacent de type offensif sur la même ligne, +1 attaque sinon.',
     },
     close_protection_power: {
       name: 'Protection rapprochée',
-      description: '+1 défense, et +1 crédit par pouvoir de soutien sur la même ligne.',
+      description: '+1 défense, et +1 crédit par pouvoir adjacent de type soutien sur la même ligne.',
     },
     impregnable_power: {
       name: 'Imprenable',
-      description: '+3 défense si la défense est nulle, +1 défense sinon.',
+      description: '+3 défense si votre défense vaut 0, ou +1 défense sinon.',
     },
     lead_boots_power: {
       name: 'Bottes de plomb',
-      description: '+2 défense et +1 attaque dans la rangée du bas, aucun effet sinon.',
+      description: '+2 défense et +1 attaque si sur terre.',
     },
     iron_will_power: {
       name: 'Volonté de fer',
-      description: '+1 défense. Immunisé contre l’épuisement.',
+      description: '+1 défense. Ce pouvoir et cette zone ne peuvent pas être affecté par un statut négatif.',
+    },
+    arctic_veil_power: {
+      name: 'voile arctique',
+      description: '+1 défense, +1 manœuvre et +1 statut gel sur cette case.',
+    },
+    blizzard_power: {
+      name: 'blizzard',
+      description: 'Si à la surface ou au ciel et que vous avez au moins 1 manœuvre, +5 attaque et -1 manœuvre. Sinon +2 attaque.',
+    },
+    'cool-headed_power': {
+      name: 'Tête froide',
+      description: '+1 défense si un pouvoir adjacent est de type offensif. Sinon +1 stratégie.',
+    },
+    frozen_lace_power: {
+      name: 'Dentelle de givre',
+      description: 'Si la zone a le statut gel, +3 crédit. Sinon +1 crédit.',
+    },
+    icy_step_power: {
+      name: 'Pas glacial',
+      description: 'Si sur terre, +1 défense et +1 manœuvre, et +1 statut gel sur la zone. Sinon +1 défense.',
+    },
+    winter_dress_power: {
+      name: 'Robe d’hiver',
+      description: 'Pour cette zone et chaque zone adjacente avec le statut gel, +1 crédit et +1 défense.',
+    },
+    gravity_beam_power: {
+      name: 'Rayon gravitationnel',
+      description: 'Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage à chaque pouvoir.',
+    },
+    weightlessness_power: {
+      name: 'impesanteur',
+      description: 'Si sur terre ou à la surface, +1 manœuvre. Sinon +1 stratégie. Aucun effet si la zone a le statut ancrage.',
+    },
+    snow_dance_power: {
+      name: 'Danse des neiges',
+      description: '+1 crédit pour chaque manœuvre que vous possédez, jusqu’à 3.',
+    },
+    icycle_power: {
+      name: 'Stalagtite',
+      description: 'Si une zone adjacente a le statut gel, +3 attaque. Sinon +1 attaque. Dans tous les cas, +1 statut gel sur cette zone.',
     },
   },
 
@@ -231,6 +271,7 @@ export default {
   // Noms des héros (indexés par nameId).
   heroes: {
     hero_paladium: 'Paladium',
+    hero_mindel: 'Mindel',
   },
 
   // Nom + description de chaque signature (perk), indexés par id.

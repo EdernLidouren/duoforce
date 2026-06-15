@@ -17,7 +17,7 @@
 // à état) ; chaque fonction retourne l'état pour permettre le chaînage.
 
 import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
-import { processTurnEnd } from './statuses.js';
+import { processTurnEnd, applyStatus } from './statuses.js';
 import { createEventStore, clearTurnLog, clearCombatLog } from './events.js';
 import { processPerksTurnEnd } from './perks.js';
 import { getPowerById } from '../data/powers/index.js';
@@ -358,6 +358,15 @@ export function resolveTurn(state) {
   // consultent les events (ex. blue_comet_mark) voient bien ce tour.
   processTurnEnd(state);
   processPerksTurnEnd(state);
+
+  // Commit des statuts de zone appliqués pendant la résolution (gel, ancrage...).
+  // Fait APRÈS processTurnEnd : ils ne sont donc pas décrémentés ce tour et
+  // deviennent actifs au tour suivant (persistance sur la case). L'immunité
+  // (iron_will) est respectée par applyStatus selon le pouvoir occupant la case.
+  for (const app of r.areaStatuses ?? []) {
+    applyStatus(state, { id: app.statusId, stacks: app.stacks, target: 'area', position: app.position });
+  }
+
   // Un statut ou une signature a pu faire tomber des PV : ré-évaluer l'issue.
   if (state.status === 'ongoing') {
     if (state.enemy.hp <= 0) { state.enemy.hp = 0; state.status = 'won'; }

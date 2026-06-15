@@ -9,7 +9,7 @@ import { empowerNeighborsOfType } from '../../engine/context.js';
 
 export const iron_grip_power = {
   id: 'iron_grip_power',
-  type: 'special',
+  type: 'support',
   rarity: Rarity.COMMON,
   customResolve: (ctx) => {
     empowerNeighborsOfType(ctx, 'offensive', 2);

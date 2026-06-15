@@ -10,7 +10,7 @@ import { applyStatus } from '../../engine/statuses.js';
 export const heavy_slam_power = {
   id: 'heavy_slam_power',
   type: 'offensive',
-  rarity: Rarity.COMMON,
+  rarity: Rarity.UNCOMMON,
   customResolve: (ctx) => {
     addAttack(ctx, 4);
     const below = getNeighbor(ctx, 'below');

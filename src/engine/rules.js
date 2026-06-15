@@ -84,6 +84,14 @@ function neighborIndices(pos) {
     .filter((i) => i !== null);
 }
 
+/** Zones de la même colonne strictement au-dessus de `pos` (vers le ciel). */
+function areasAboveInColumn(pos, board) {
+  const { r, c } = COORD[pos];
+  const out = [];
+  for (let rr = r - 1; rr >= 0; rr--) out.push(board[LAYOUT[rr][c]]);
+  return out;
+}
+
 // --- Contexte ---------------------------------------------------------------
 
 /**
@@ -109,6 +117,8 @@ function buildContext(pos, board, combatState) {
   }
 
   const area = board[pos] ?? null;
+  const neighborAreas = Object.values(neighborAreasByDir).filter((a) => a != null);
+  const areasAbove = areasAboveInColumn(pos, board);
   return {
     position: pos,
     power: area?.power ?? null,
@@ -116,6 +126,8 @@ function buildContext(pos, board, combatState) {
     neighbors,
     neighborsByDir,
     neighborAreasByDir,
+    neighborAreas,
+    areasAbove,
     boardState: board,
     combatState,
   };
@@ -207,10 +219,11 @@ function isResolutionBlocked(work, area, power, emit = false) {
  * @param {object} [options]
  * @param {boolean} [options.emit]  émettre les events de blocage (true pour la
  *   résolution réelle ; false pour l'estimateur, afin de ne pas polluer les journaux).
- * @returns {{ duo:object, enemy:object, activations:Array }}
+ * @returns {{ duo:object, enemy:object, activations:Array, areaStatuses:Array }}
  *   duo : { attack, defense, hp, maneuver, strategy, credit } (valeurs résolues)
  *   enemy : { attack, defense, hp }
  *   activations : [{ position, powerId, effects:[{effect,value}] }] (ordre de résolution)
+ *   areaStatuses : [{ position, statusId, stacks }] statuts de zone à committer
  */
 export function resolveBoard(boardState, combatState, { emit = false } = {}) {
   const work = cloneForResolve(combatState);
@@ -286,5 +299,8 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
       hp: work.enemy.hp,
     },
     activations,
+    // Statuts de zone à committer sur l'état réel (par resolveTurn). L'estimateur
+    // ignore ce champ : aucune persistance lors d'une simple estimation.
+    areaStatuses: work._pendingAreaStatuses ?? [],
   };
 }

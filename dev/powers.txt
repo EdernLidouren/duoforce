@@ -45,104 +45,143 @@ pouvoirs :
 
 id : helmbutt_power
 nom (fr, en) : Coup de casque, helmbutt
+type : offensif
+rareté : commune
 Description mécanique : attaque +2
 Description en jeu : Attaque +2
 
-
 id : iron_grip_power
 nom (fr, en) : Poigne de fer, iron grip
+type : soutien
+rareté : commune
 Description mécanique : Les pouvoirs adjacents de type offensif infligent +2 dégâts.
 Description en jeu : Les pouvoirs adjacents de type offensif infligent +2 dégâts.
 
 id : shield_charge_power
 nom (fr, en) : Charge au bouclier, shield charge
+type : offensif
+rareté : commune
 Description mécanique : +1 attaque et +1 défense.
 Description en jeu : +1 attaque et +1 défense.
 
 id : metalloy_power
 nom (fr, en) : Métalliage, metalloy
+type : soutien
+rareté : commune
 Description mécanique : +2 défense
 Description en jeu : +2 défense
 
 id : heavy_slam_power
 nom (fr, en) : Plaquage lourd, heavy slam
+type : offensif
+rareté : peu commune
 Description mécanique : +4 attaque. +1 statut épuisement au pouvoir adjacent sous lui.
 Description en jeu : +4 attaque et +1 statut épuisement au premier pouvoir en dessous.
 
 id : force_palm_power
 nom (fr, en) : Paume de force, force palm
+type : offensif
+rareté : commune
 Description mécanique : +1 attaque. ou +3 attaque si un pouvoir adjacent sur la ligne est de type offensif.
 Description en jeu : +3 attaque si un pouvoir adjacent de type offensif sur la même ligne, +1 attaque sinon.
 
 id : close_protection_power
 nom (fr, en) : Protection rapprochée, close protection
+type : soutien
+rareté : peu commune
 Description mécanique : +1 défense, et +1 crédit par pouvoir adjacent sur la même ligne de type soutien.
 Description en jeu : +1 défense, et +1 crédit par pouvoir adjacent de type soutien sur la même ligne.
 
 id : impregnable_power
 nom (fr, en) : Imprenable, impregnable
+type : soutien
+rareté : commune
 Description mécanique : +3 défense si la défense du duo vaut 0, +1 défense sinon
 Description en jeu : +3 défense si votre défense vaut 0, ou +1 défense sinon.
 
 id : lead_boots_power
 nom (fr, en) : Bottes de plomb, lead boots
+type : offensif
+rareté : commune
 Description mécanique : +2 défense et +1 attaque si sur la ligne du bas, aucun effet sinon
 Description en jeu : +2 défense et +1 attaque si sur terre.
 
 id : iron_will_power
 nom (fr, en) : Volonté de fer, iron will
-Description mécanique : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif (épuisement).
-Description en jeu : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif.
+type : spécial
+rareté : rare
+Description mécanique : +1 défense. Ce pouvoir ne peut pas être affecté par un statut négatif (épuisement) et la case qui le contient non plus (ancrage, gel).
+Description en jeu : +1 défense. Ce pouvoir et cette zone ne peuvent pas être affecté par un statut négatif.
 
 
 
 id : arctic_veil_power
 nom (fr, en) : voile arctique, arctic veil
+type : soutien
+rareté : commune
 Description mécanique : +1 défense et +1 manoeuvre. Applique 1 statut gel sur la case du pouvoir.
 Description en jeu : +1 défense, +1 manoeuvre et +1 statut gel sur cette case.
 
 id : blizzard_power
 nom (fr, en) : blizzard, blizzard
+type : offensif
+rareté : commune
 Description mécanique : Si le pouvoir est sur la ligne supérieure et que le joueur a au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. +2 attaque sinon.
 Description en jeu : Si à la surface ou au ciel et que vous avez au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. Sinon +2 attaque.
 
 id : cool-headed_power
 nom (fr, en) : Tête froide, cool-headed
+type : soutien
+rareté : commune
 Description mécanique : Si un pouvoir de type offensif est adjacent, +1 défense. +1 stratégie sinon.
 Description en jeu : +1 défense si un pouvoir adjacent est de type offensif. Sinon +1 stratégie.
 
 id : frozen_lace_power
 nom (fr, en) : Dentelle de givre, frozen lace
+type : special
+rareté : peu commune
 Description mécanique : +3 crédit si la case a le statut gel. +1 crédit sinon.
 Description en jeu : Si la zone a le statut gel, +3 crédit. Sinon +1 crédit.
 
 id : icy_step_power
 nom (fr, en) : Pas glacial, icy step
+type : soutien
+rareté : commune
 Description mécanique : Si sur la ligne inférieure, +1 manoeuvre, +1 défense et +1 statut gel sur la case. +1 défense sinon.
 Description en jeu : Si sur terre, +1 défense et +1 manoeuvre, et +1 statut gel sur la zone. Sinon +1 défense.
 
 id : winter_dress_power
 nom (fr, en) : Robe d'hiver, winter dress
+type : special
+rareté : rare
 Description mécanique : Pour chaque zone adjacente et la zone du pouvoir possédant le statut gel, +1 crédit et +1 défense.
 Description en jeu : Pour cette zone et chaque zone adjacente avec le statut gel, +1 crédit et +1 défense.
 
 id : gravity_beam_power
 nom (fr, en) : Rayon gravitationnel, gravity beam
+type : offensif
+rareté : peu commune
 Description mécanique : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque, et le pouvoir en question gagne 1 statut ancrage.
 Description en jeu : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage à chaque pouvoir.
 
 id : weightlessness_power
 nom (fr, en) : impesanteur, weightlessness
+type : soutien
+rareté : commune
 Description mécanique : Si le pouvoir est sur la ligne inférieure ou la ligne du milieu, +1 manoeuvre. Sinon +1 stratégie. Si la case contenant ce pouvoir a le statut ancrage, alors les effets du pouvoir sont annulés.
 Description en jeu : Si sur terre ou à la surface, +1 manoeuvre. Sinon +1 stratégie. Aucun effet si la zone a le statut ancrage.
 
 id : snow_dance_power
 nom (fr, en) : Danse des neiges, snow dance
+type : special
+rareté : commune
 Description mécanique : Gagne autant de crédit que le joueur a de manoeuvres actuellement, pour un maximum de 3 crédits.
 Description en jeu : +1 crédit pour chaque manoeuvre que vous possédez, Jusqu'à 3.
 
 id : icycle_power
 nom (fr, en) : Stalagtite, icycle
+type : offensif
+rareté : commune
 Description mécanique : Si une zone adjacente a le statut gel, +3 attaque. Sinon +1 attaque. Dans tous les cas, +1 statut gel sur cette zone.
 Description en jeu : Si une zone adjacente a le statut gel, +3 attaque. Sinon +1 attaque. Dans tous les cas, +1 statut gel sur cette zone.
 

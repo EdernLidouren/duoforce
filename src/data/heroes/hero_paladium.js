@@ -17,5 +17,5 @@ export const hero_paladium = {
     'close_protection_power',
     'lead_boots_power',
   ],
-  signature: null,
+  signature: 'rusted_armor_perk',
 };

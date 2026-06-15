@@ -11,6 +11,8 @@ Bibliothèque de helpers passés à chaque `customResolve(ctx)` de pouvoir. Le
   neighbors,           // POUVOIRS voisins orthogonaux (tableau, peut être vide)
   neighborsByDir,      // { left, right, above, below } → pouvoir voisin ou null
   neighborAreasByDir,  // { left, right, above, below } → zone voisine ou null
+  neighborAreas,       // ZONES voisines orthogonales (tableau, non nulles)
+  areasAbove,          // ZONES de la même colonne au-dessus (vers le ciel), de la plus proche à la plus lointaine
   boardState,          // les 9 zones (copie de travail)
   combatState,         // état de combat (copie de travail mutée par les écritures)
   effects,             // journal des effets (rempli par les helpers d'écriture)
@@ -64,6 +66,7 @@ Disposition du plateau (index) :
 | `hasNeighborById` | `(ctx, id)` | `ctx.neighbors` | `true` s'il existe un voisin orthogonal de cet `id` |
 | `isIsolated` | `(ctx)` | `ctx.neighbors` | `true` si aucun voisin orthogonal |
 | `countNeighborsOfType` | `(ctx, type)` | `ctx.neighbors` | nombre de voisins de ce `type` |
+| `areaHasStatus` | `(ctx, position, statusId)` | `ctx.combatState` (zones) | `true` si la zone à `position` porte ce statut |
 | `countEvents` | `(ctx, type, scope)` | `ctx.combatState.events` | nombre d'events d'un `type` dans un scope (voir [Events](#events-bus-devents--srcengineeventsjs)) |
 
 Pour lire une valeur de combat (rare), on accède directement à
@@ -117,6 +120,42 @@ pouvoir qui renforce. Exemple : `iron_grip_power` fait
 `empowerNeighborsOfType(ctx, 'offensive', 2)`.
 
 ---
+
+## Statuts de zone
+
+| Helper | Effet |
+|---|---|
+| `areaHasStatus(ctx, position, statusId)` | lit si une zone porte un statut (statuts persistants des tours précédents) |
+| `applyAreaStatus(ctx, position, statusId, stacks = 1)` | applique un statut à une zone — **en différé** |
+
+`applyAreaStatus` n'écrit pas tout de suite : l'application est **enregistrée**
+puis **committée sur l'état réel en fin de tour** (après `processTurnEnd`). Le
+statut devient donc actif au **tour suivant** et persiste sur la case. Deux raisons :
+préserver la pureté de `resolveBoard` (l'estimateur ne persiste rien) et éviter
+qu'un pouvoir ne se bloque lui-même en gelant sa propre case pendant sa résolution.
+
+Conséquence : `areaHasStatus` lit l'état **du début du tour** (statuts posés aux
+tours précédents) ; un gel posé ce tour n'est lu qu'au tour suivant. Pour itérer
+des zones, utiliser `ctx.area`, `ctx.neighborAreas` et `ctx.areasAbove`.
+
+```js
+// icycle : +3 attaque si une zone adjacente est gelée, +1 sinon ; gèle sa case.
+customResolve: (ctx) => {
+  const adjFrozen = ctx.neighborAreas.some((a) => areaHasStatus(ctx, a.position, 'area_freeze_status'));
+  addAttack(ctx, adjFrozen ? 3 : 1);
+  applyAreaStatus(ctx, ctx.position, 'area_freeze_status', 1);
+}
+
+// gravity_beam : pour chaque pouvoir au-dessus dans la colonne, +3 attaque et ancrage.
+customResolve: (ctx) => {
+  for (const area of ctx.areasAbove) {
+    if (area.power) { addAttack(ctx, 3); applyAreaStatus(ctx, area.position, 'area_anchor_status', 1); }
+  }
+}
+```
+
+L'immunité (ex. `iron_will`, `immuneToNegativeStatus`) est respectée au moment du
+commit : un statut négatif ne s'applique pas à une zone dont le pouvoir est immunisé.
 
 ## Appliquer un statut à un voisin (entité)
 

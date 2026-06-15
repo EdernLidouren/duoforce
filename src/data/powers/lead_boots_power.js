@@ -7,7 +7,7 @@ import { isInZone, addDefense, addAttack } from '../../engine/context.js';
 
 export const lead_boots_power = {
   id: 'lead_boots_power',
-  type: 'support',
+  type: 'offensive',
   rarity: Rarity.COMMON,
   customResolve: (ctx) => {
     if (isInZone(ctx, [0, 1, 2])) {

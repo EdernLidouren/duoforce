@@ -16,6 +16,7 @@ export const area_anchor_status = {
   id: 'area_anchor_status',
   stackable: false,
   onLimitReached: 'overwrite',
+  immunityFlag: 'immuneToNegativeStatus', // une case avec un pouvoir immunisé ne s'ancre pas
   modifiers: [],
   triggers: [],
   onTurnEnd: (status) => {

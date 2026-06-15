@@ -44,7 +44,7 @@ fin de tour.
   id: string,
   stackable: boolean,        // réappliquer cumule les stacks (true) ou remplace (false)
   onLimitReached?: string,   // 'overwrite' | 'ignore' | 'stack_if_same' (voir Limites)
-  immunityFlag?: string,     // (entity) drapeau d'immunité vérifié sur l'entité visée
+  immunityFlag?: string,     // drapeau d'immunité vérifié sur l'entité visée, ou sur le pouvoir occupant la zone visée
   modifiers: [],             // appliqués chaque tour, avant la résolution
   triggers: [],              // effets conditionnels évalués après chaque pouvoir
   onTurnEnd: (status, combatState) => void,  // dégâts, décrément, expiration...
@@ -89,10 +89,12 @@ déclencher plusieurs fois dans un même tour — à la définition d'en tenir c
 ### Immunité (`immunityFlag`)
 
 Si une définition déclare `immunityFlag: 'xxx'`, alors `applyStatus` **refuse**
-d'appliquer ce status à une entité qui porte ce drapeau à `true`. Exemple :
-`power_exhaustion_status` a `immunityFlag: 'immuneToExhaustion'`, et
-`iron_will_power` porte `immuneToExhaustion: true` → il ne peut jamais être
-épuisé.
+d'appliquer ce status quand le drapeau vaut `true` — soit sur l'**entité** visée
+(cible `entity`), soit sur le **pouvoir occupant la zone** visée (cible `area`).
+Exemple : `power_exhaustion_status`, `area_freeze_status` et `area_anchor_status`
+déclarent tous `immunityFlag: 'immuneToNegativeStatus'`, et `iron_will_power`
+porte `immuneToNegativeStatus: true` → ce pouvoir ne peut pas être épuisé, et la
+zone qui le contient ne peut être ni gelée ni ancrée.
 
 ## Stockage
 
@@ -200,7 +202,7 @@ durée. Le drapeau d'immunité protège certains pouvoirs.
 export const power_exhaustion_status = {
   id: 'power_exhaustion_status',
   stackable: false,                    // réappliquer réinitialise la durée
-  immunityFlag: 'immuneToExhaustion',  // un pouvoir avec ce drapeau est immunisé
+  immunityFlag: 'immuneToNegativeStatus', // un pouvoir avec ce drapeau est immunisé
   modifiers: [],
   triggers: [],
   onTurnEnd: (status) => { status.stacks -= 1; },
@@ -250,6 +252,7 @@ export const area_freeze_status = {
   id: 'area_freeze_status',
   stackable: false,
   onLimitReached: 'overwrite',
+  immunityFlag: 'immuneToNegativeStatus',
   modifiers: [],
   triggers: [],
   onTurnEnd: (status) => { status.stacks -= 1; },
@@ -276,6 +279,7 @@ export const area_anchor_status = {
   id: 'area_anchor_status',
   stackable: false,
   onLimitReached: 'overwrite',
+  immunityFlag: 'immuneToNegativeStatus',
   modifiers: [],
   triggers: [],
   onTurnEnd: (status) => { status.stacks -= 1; },

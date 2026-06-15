@@ -25,6 +25,7 @@
 // Aucun DOM.
 
 import { countEvents as countEventsInState } from './events.js';
+import { hasAreaStatus } from './statuses.js';
 
 // --- Lecture du plateau -----------------------------------------------------
 
@@ -172,6 +173,37 @@ export function empowerNeighborsOfType(ctx, type, amount) {
   for (const n of ctx.neighbors) {
     if (n.type === type) cs._attackBonus.set(n, (cs._attackBonus.get(n) ?? 0) + amount);
   }
+}
+
+// --- Statuts de zone (lecture / application différée) -----------------------
+
+/**
+ * true si la zone à `position` porte le statut donné. Lit l'état de résolution
+ * (zones telles qu'elles étaient au début du tour : statuts persistants des tours
+ * précédents). Les statuts de zone appliqués CE tour via applyAreaStatus ne sont
+ * visibles qu'au tour suivant (voir applyAreaStatus).
+ * @param {object} ctx
+ * @param {number} position
+ * @param {string} statusId
+ * @returns {boolean}
+ */
+export function areaHasStatus(ctx, position, statusId) {
+  return hasAreaStatus(ctx.combatState, position, statusId);
+}
+
+/**
+ * Applique un statut à une zone. L'application est DIFFÉRÉE : elle est enregistrée
+ * puis committée sur l'état réel en fin de tour (après processTurnEnd), si bien
+ * que le statut devient actif au tour SUIVANT et persiste sur la case. Cela
+ * préserve la pureté de resolveBoard (l'estimateur n'altère rien) et évite qu'un
+ * pouvoir ne se bloque lui-même en gelant sa propre case pendant sa résolution.
+ * @param {object} ctx
+ * @param {number} position    case visée (souvent ctx.position)
+ * @param {string} statusId
+ * @param {number} [stacks]
+ */
+export function applyAreaStatus(ctx, position, statusId, stacks = 1) {
+  (ctx.combatState._pendingAreaStatuses ??= []).push({ position, statusId, stacks });
 }
 
 export function grantManeuver(ctx, n) {

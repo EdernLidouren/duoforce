@@ -124,8 +124,13 @@ export function applyStatus(combatState, instance) {
   const def = getStatusDefById(id);
   const key = targetKey(instance);
 
-  // Immunité (entités uniquement).
-  if (target === 'entity' && def?.immunityFlag && key?.[def.immunityFlag]) return;
+  // Immunité : un drapeau peut bloquer ce statut, soit sur l'entité visée, soit
+  // sur le pouvoir occupant la zone visée (ex. iron_will protège lui-même ET sa
+  // case contre les statuts négatifs).
+  if (def?.immunityFlag) {
+    if (target === 'entity' && key?.[def.immunityFlag]) return;
+    if (target === 'area' && combatState.board?.[key]?.power?.[def.immunityFlag]) return;
+  }
 
   const list = getList(combatState, target, key);
   if (!list) return;

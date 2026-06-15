@@ -14,6 +14,7 @@ export const area_freeze_status = {
   id: 'area_freeze_status',
   stackable: false,
   onLimitReached: 'overwrite',
+  immunityFlag: 'immuneToNegativeStatus', // une case avec un pouvoir immunisé ne gèle pas
   modifiers: [],
   triggers: [],
   onTurnEnd: (status) => {

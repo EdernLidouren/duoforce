@@ -8,7 +8,7 @@ import { getNeighbor, addDefense, grantCredit } from '../../engine/context.js';
 export const close_protection_power = {
   id: 'close_protection_power',
   type: 'support',
-  rarity: Rarity.COMMON,
+  rarity: Rarity.UNCOMMON,
   customResolve: (ctx) => {
     addDefense(ctx, 1);
     let supports = 0;
