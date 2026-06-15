@@ -23,6 +23,7 @@ import {
   hasEntityStatus,
   hasAreaStatus,
 } from './statuses.js';
+import { emitEvent } from './events.js';
 
 /** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
 const EXHAUSTION_ID = 'power_exhaustion_status';
@@ -169,15 +170,29 @@ function cloneForResolve(combatState) {
  * Conceptuellement « le pouvoir résout, puis la zone résout » : ce contrôle a
  * lieu en amont mais le gel représente un effet de la zone, postérieur à celui
  * du pouvoir dans la hiérarchie conceptuelle.
+ *
+ * Si `emit` est vrai, on émet l'event correspondant à la cause du blocage
+ * (`power_blocked_by_exhaustion` ou `power_blocked_by_area`). On ne l'émet QUE
+ * depuis la boucle de résolution réelle — pas depuis l'estimateur, ni depuis la
+ * passe de finalisation — pour ne pas dédoubler ni polluer les journaux.
  * @param {object} work   combatState de travail
  * @param {object} area   zone courante (avec ses statuts)
  * @param {object} power  pouvoir de la zone (non nul)
+ * @param {boolean} [emit]
  * @returns {boolean}
  */
-function isResolutionBlocked(work, area, power) {
-  if (hasEntityStatus(work, power, EXHAUSTION_ID)) return true; // pouvoir d'abord
-  if (hasAreaStatus(work, area.position, FREEZE_ID) && FREEZABLE_TYPES.has(power.type)) {
-    return true; // zone ensuite
+function isResolutionBlocked(work, area, power, emit = false) {
+  if (hasEntityStatus(work, power, EXHAUSTION_ID)) { // pouvoir d'abord
+    if (emit) {
+      emitEvent(work, 'power_blocked_by_exhaustion', { position: area.position, powerId: power.id });
+    }
+    return true;
+  }
+  if (hasAreaStatus(work, area.position, FREEZE_ID) && FREEZABLE_TYPES.has(power.type)) { // zone ensuite
+    if (emit) {
+      emitEvent(work, 'power_blocked_by_area', { position: area.position, powerId: power.id });
+    }
+    return true;
   }
   return false;
 }
@@ -187,13 +202,16 @@ function isResolutionBlocked(work, area, power) {
 /**
  * Résout l'ensemble du plateau SANS muter l'entrée (travaille sur des copies).
  * @param {Array} boardState   9 zones (index 0–8) : { position, power, statuses }.
- * @param {object} combatState { duo:{...}, enemy:{...}, statuses, board }
+ * @param {object} combatState { duo:{...}, enemy:{...}, statuses, board, events }
+ * @param {object} [options]
+ * @param {boolean} [options.emit]  émettre les events de blocage (true pour la
+ *   résolution réelle ; false pour l'estimateur, afin de ne pas polluer les journaux).
  * @returns {{ duo:object, enemy:object, activations:Array }}
  *   duo : { attack, defense, hp, maneuver, strategy, credit } (valeurs résolues)
  *   enemy : { attack, defense, hp }
  *   activations : [{ position, powerId, effects:[{effect,value}] }] (ordre de résolution)
  */
-export function resolveBoard(boardState, combatState) {
+export function resolveBoard(boardState, combatState, { emit = false } = {}) {
   const work = cloneForResolve(combatState);
   // Zones clonées ; le moteur de statuts (statuses d'area) lit work.board.
   const board = cloneBoard(boardState);
@@ -209,8 +227,9 @@ export function resolveBoard(boardState, combatState) {
     if (!power) continue;
 
     // Le pouvoir résout, puis la zone : si l'un ou l'autre bloque, customResolve
-    // n'est pas exécuté (aucun effet).
-    if (isResolutionBlocked(work, area, power)) continue;
+    // n'est pas exécuté (aucun effet). C'est ici (et seulement ici) qu'on émet
+    // l'event de blocage.
+    if (isResolutionBlocked(work, area, power, emit)) continue;
 
     const ctx = buildContext(pos, board, work);
     ctx.effects = []; // journal des effets de ce pouvoir (pour les messages)

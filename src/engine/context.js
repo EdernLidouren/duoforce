@@ -24,6 +24,8 @@
 //
 // Aucun DOM.
 
+import { countEvents as countEventsInState } from './events.js';
+
 // --- Lecture du plateau -----------------------------------------------------
 
 /**
@@ -70,6 +72,19 @@ export function isIsolated(ctx) {
 /** Nombre de voisins orthogonaux du type donné. */
 export function countNeighborsOfType(ctx, type) {
   return ctx.neighbors.filter((n) => n.type === type).length;
+}
+
+/**
+ * Nombre d'events d'un type donné dans un scope (délègue à events.js via
+ * ctx.combatState). À utiliser dans un customResolve pour réagir aux faits de jeu
+ * (ex. compter les pouvoirs bloqués ce tour).
+ * @param {object} ctx
+ * @param {string} type
+ * @param {'turn'|'combat'|'progression'} scope
+ * @returns {number}
+ */
+export function countEvents(ctx, type, scope) {
+  return countEventsInState(ctx.combatState, type, scope);
 }
 
 // --- Écriture du combat (mutations de ctx.combatState) ----------------------

@@ -64,6 +64,7 @@ Disposition du plateau (index) :
 | `hasNeighborById` | `(ctx, id)` | `ctx.neighbors` | `true` s'il existe un voisin orthogonal de cet `id` |
 | `isIsolated` | `(ctx)` | `ctx.neighbors` | `true` si aucun voisin orthogonal |
 | `countNeighborsOfType` | `(ctx, type)` | `ctx.neighbors` | nombre de voisins de ce `type` |
+| `countEvents` | `(ctx, type, scope)` | `ctx.combatState.events` | nombre d'events d'un `type` dans un scope (voir [Events](#events-bus-devents--srcengineeventsjs)) |
 
 Pour lire une valeur de combat (rare), on accède directement à
 `ctx.combatState.duo` / `ctx.combatState.enemy` — ex. `impregnable` teste
@@ -139,6 +140,62 @@ customResolve: (ctx) => {
   }
 }
 ```
+
+---
+
+## Events (bus d'events) — `src/engine/events.js`
+
+Le combat émet des **events** (faits de jeu datés) que les `customResolve`
+peuvent consulter. Structure d'un event :
+
+```js
+{
+  type: string,   // ex. 'power_blocked_by_area', 'power_blocked_by_exhaustion', 'status_applied'
+  turn: number,   // numéro du tour où l'event a été émis
+  data: {},       // contexte libre selon le type (position, powerId, statusId, …)
+}
+```
+
+### Trois scopes et leur cycle de vie
+
+Chaque émission alimente **les trois journaux** simultanément
+(`combatState.events = { turn, combat, progression }`) :
+
+| Scope | Contenu | Vidé… |
+|---|---|---|
+| `'turn'` | events du tour courant | au début de chaque tour (`clearTurnLog`, dans `startTurn`) |
+| `'combat'` | events du combat courant | à l'initialisation d'un combat (`clearCombatLog`, dans `initCombat`) |
+| `'progression'` | events au-delà des combats et des parties | jamais automatiquement (persiste en mémoire ; prêt à être sérialisé) |
+
+> L'émission a lieu pendant la **résolution réelle** (`resolveTurn`), pas pendant
+> l'estimation (l'estimateur appelle `resolveBoard` sans émettre, pour ne pas
+> polluer les journaux). Un `customResolve` qui lit le scope `'turn'` voit donc
+> les events émis **plus tôt dans la même résolution** (ex. les pouvoirs déjà
+> bloqués, l'ordre étant 6,7,8,3,4,5,0,1,2).
+
+### `countEvents(ctx, type, scope)`
+
+Compte les events d'un `type` dans un `scope` (délègue à `events.js` via
+`ctx.combatState`). C'est le helper destiné aux `customResolve`.
+
+```js
+import { countEvents } from '../../engine/context.js';
+
+// blue_comet_mark_perk : pour chaque tranche de 3 pouvoirs bloqués par une zone
+// ce tour, +1 attaque (appliqué en fin de résolution).
+customResolve: (ctx) => {
+  const blocked = countEvents(ctx, 'power_blocked_by_area', 'turn');
+  const bonus = Math.floor(blocked / 3);
+  if (bonus > 0) addAttack(ctx, bonus);
+}
+```
+
+Events de blocage émis par `resolveBoard` (chacun avec `data: { position, powerId }`) :
+
+| `type` | Émis quand… |
+|---|---|
+| `power_blocked_by_exhaustion` | le pouvoir porte `power_exhaustion_status` |
+| `power_blocked_by_area` | la zone porte un statut bloquant (ex. `area_freeze_status`) |
 
 ---
 

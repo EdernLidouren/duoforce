@@ -18,6 +18,7 @@
 
 import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
 import { processTurnEnd } from './statuses.js';
+import { createEventStore, clearTurnLog, clearCombatLog } from './events.js';
 import { getPowerById } from '../data/powers/index.js';
 import { HEROES } from '../data/heroes/index.js';
 import {
@@ -189,7 +190,7 @@ function drawPowers(state, n) {
 export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math.random } = {}) {
   const deck = shuffle(buildDeck(heroes), rng);
 
-  return {
+  const state = {
     heroes,
     rng,
     turn: 0,
@@ -200,6 +201,9 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
     exile: [],
     // Statuts actifs (voir src/engine/statuses.js).
     statuses: { duo: [], enemy: [], entities: new Map() },
+    // Journaux d'events (voir src/engine/events.js) : turn/combat neufs,
+    // progression partagée et persistante.
+    events: createEventStore(),
     duo: {
       hp: DEFAULT_DUO_HP,
       maxHp: DEFAULT_DUO_HP,
@@ -211,6 +215,10 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
     },
     enemy: createEnemy(enemy),
   };
+
+  // Combat neuf : journal de combat vierge (la progression n'est pas touchée).
+  clearCombatLog(state);
+  return state;
 }
 
 // --- Déroulement d'un tour --------------------------------------------------
@@ -247,6 +255,9 @@ export function startTurn(state) {
   drawn.forEach((power, k) => {
     state.board[RESOLUTION_ORDER[k]].power = power;
   });
+
+  // Nouveau tour : journal du tour vidé (la résolution à venir le repeuplera).
+  clearTurnLog(state);
 
   // Gain de ressources jusqu'aux valeurs par défaut (top-up, sans réduire).
   state.duo.maneuver = Math.max(state.duo.maneuver, DEFAULT_MANEUVERS);
@@ -298,7 +309,7 @@ export function resolveTurn(state) {
   // Résolution sur une copie de travail ; on commet ici les valeurs obtenues
   // (les helpers ont déjà mutué la copie : sommes, multiplicateurs, soins,
   // ressources, modificateurs de statuts...).
-  const r = resolveBoard(state.board, state);
+  const r = resolveBoard(state.board, state, { emit: true });
   state.duo.attack = r.duo.attack;
   state.duo.defense = r.duo.defense;
   state.duo.maneuver = r.duo.maneuver;
