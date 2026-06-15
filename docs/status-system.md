@@ -261,3 +261,88 @@ Application :
 La zone 4 est gelée ce tour ; son éventuel pouvoir offensif/soutien est neutralisé.
 Le statut vit sur `board[4].statuses` et persiste jusqu'à expiration, quels que
 soient les pouvoirs qui occupent la zone au fil des tours.
+
+---
+
+# Signatures (perks) — `src/engine/perks.js`
+
+Une **signature** (perk) est un effet **passif et permanent** pour toute la durée
+du combat, attaché à un camp. C'est un cousin du statut, mais plus simple.
+
+## Structure d'une signature (`src/data/perks/`)
+
+```js
+{
+  id: string,
+  onTurnEnd?: (combatState, ctx, owner) => void, // fin de tour ; owner: 'duo' | 'enemy'
+  modifiers?: [],   // appliqués chaque tour (avant résolution), comme pour un statut
+  triggers?:  [],   // évalués après chaque pouvoir, comme pour un statut
+}
+```
+
+Les `modifiers`/`triggers` ont la même forme que ceux d'un statut, à une nuance
+près : une signature n'ayant **pas de stacks**, `modifier.value()` est appelé
+**sans argument** (au lieu de `value(stacks)`).
+
+## Stockage : deux listes par camp
+
+```js
+combatState.duo.perks   = [] // signatures du duo
+combatState.enemy.perks = [] // signatures de l'ennemi
+```
+
+Chaque liste peut être vide ou contenir plusieurs signatures. Elles sont
+**initialisées dans `combat.js` (`initCombat`)** : le duo agrège les `signature`
+de ses héros, l'ennemi prend sa propre `signature`. Les définitions sont
+stateless : on stocke directement les objets (pas de copie nécessaire).
+
+## Cycle de vie et points d'intégration
+
+| Moment | Statuts | Signatures (mêmes points) |
+|---|---|---|
+| Avant la résolution (`resolveBoard`) | `applyModifiers` | `applyPerkModifiers` |
+| Après chaque pouvoir (`resolveBoard`) | `evaluateTriggers` | `evaluatePerkTriggers` |
+| Fin de tour (`resolveTurn`) | `processTurnEnd` | `processPerksTurnEnd` |
+
+`onTurnEnd(combatState, ctx, owner)` reçoit un `ctx` minimal (`{ combatState }`)
+afin de pouvoir consulter l'event bus via `countEvents` (voir
+[`context-api.md`](./context-api.md)). Le journal du tour est encore peuplé à ce
+moment : un perk peut donc réagir à ce qui s'est passé pendant la résolution.
+
+## Différences avec un statut
+
+| | Statut | Signature (perk) |
+|---|---|---|
+| Durée | temporaire (`stacks`, expiration) | permanente (durée du combat) |
+| `stacks` | oui | non |
+| Cible | `duo`/`enemy`/`entity`/`area` | aucune cible propre : agit sur son `owner` |
+| Limite de slots | oui (selon la cible) | non : un camp peut en cumuler plusieurs |
+| Application en jeu | `applyStatus` | fixée à l'initialisation du combat |
+
+> Un statut appliqué au **duo** ou à l'**ennemi** peut influencer ses signatures
+> indirectement, via les `modifiers`/`triggers` existants (ils modifient les
+> statistiques que les perks lisent/écrivent). En revanche, une **signature
+> elle-même ne peut pas porter de statut** : ce n'est pas une cible (`target`).
+
+## Les deux signatures implémentées
+
+```js
+// src/data/perks/rusted_armor_perk.js  (fr « Armure rouillée », en « rusted armor »)
+export const rusted_armor_perk = {
+  id: 'rusted_armor_perk',
+  onTurnEnd: (combatState, ctx, owner) => {
+    const subject = combatState[owner];
+    if (subject) subject.defense += 2; // +2 défense à l'owner en fin de tour
+  },
+};
+
+// src/data/perks/blue_comet_mark_perk.js  (fr « marque de la comète bleue », en « blue comet mark »)
+import { countEvents } from '../../engine/context.js';
+export const blue_comet_mark_perk = {
+  id: 'blue_comet_mark_perk',
+  onTurnEnd: (combatState, ctx, owner) => {
+    const bonus = Math.floor(countEvents(ctx, 'power_blocked_by_area', 'turn') / 3);
+    if (bonus > 0) combatState[owner].attack += bonus; // +1 attaque / 3 pouvoirs gelés ce tour
+  },
+};
+```

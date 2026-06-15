@@ -229,6 +229,12 @@ export default {
     hero_paladium: 'Paladium',
   },
 
+  // Noms des signatures (perks), indexés par id.
+  perks: {
+    rusted_armor_perk: 'Armure rouillée',
+    blue_comet_mark_perk: 'marque de la comète bleue',
+  },
+
   // Noms des ennemis (indexés par nameId).
   enemies: {
     enemy_dummy: 'Mannequin d’entraînement',

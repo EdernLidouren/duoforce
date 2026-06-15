@@ -19,7 +19,9 @@
 import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
 import { processTurnEnd } from './statuses.js';
 import { createEventStore, clearTurnLog, clearCombatLog } from './events.js';
+import { processPerksTurnEnd } from './perks.js';
 import { getPowerById } from '../data/powers/index.js';
+import { getPerkById } from '../data/perks/index.js';
 import { HEROES } from '../data/heroes/index.js';
 import {
   BOARD_SIZE,
@@ -69,6 +71,17 @@ export function buildDeck(heroes) {
     .map((power) => ({ ...power }));
 }
 
+/**
+ * Résout une liste d'ids de signature en définitions de perk (ignore les
+ * absents / null). Une signature peut être un id unique ou une liste d'ids.
+ * @param {string|Array|null|undefined} signatures
+ * @returns {Array} définitions de perk
+ */
+function resolvePerks(signatures) {
+  const ids = Array.isArray(signatures) ? signatures : [signatures];
+  return ids.filter(Boolean).map((id) => getPerkById(id)).filter((perk) => perk != null);
+}
+
 /** Construit l'état initial de l'ennemi. */
 function createEnemy(overrides = {}) {
   const maxHp = overrides.maxHp ?? overrides.hp ?? DEFAULT_ENEMY_HP;
@@ -84,6 +97,8 @@ function createEnemy(overrides = {}) {
     baseDefense: overrides.baseDefense ?? DEFAULT_ENEMY_DEFENSE,
     attack: overrides.baseAttack ?? DEFAULT_ENEMY_ATTACK,
     defense: overrides.baseDefense ?? DEFAULT_ENEMY_DEFENSE,
+    // Signatures passives de l'ennemi (voir src/engine/perks.js).
+    perks: resolvePerks(overrides.signature),
   };
 }
 
@@ -212,6 +227,8 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
       maneuver: 0,
       strategy: 0,
       credit: STARTING_CREDIT,
+      // Signatures passives du duo, issues des signatures des héros.
+      perks: resolvePerks(heroes.map((hero) => hero.signature)),
     },
     enemy: createEnemy(enemy),
   };
@@ -336,9 +353,12 @@ export function resolveTurn(state) {
     }
   }
 
-  // Fin de tour : statuts (poison, décréments de durée, expirations...).
+  // Fin de tour : statuts (poison, décréments de durée, expirations...) puis
+  // signatures (perks). Le journal du tour est encore peuplé, donc les perks qui
+  // consultent les events (ex. blue_comet_mark) voient bien ce tour.
   processTurnEnd(state);
-  // Un statut a pu faire tomber des PV : ré-évaluer l'issue.
+  processPerksTurnEnd(state);
+  // Un statut ou une signature a pu faire tomber des PV : ré-évaluer l'issue.
   if (state.status === 'ongoing') {
     if (state.enemy.hp <= 0) { state.enemy.hp = 0; state.status = 'won'; }
     else if (state.duo.hp <= 0) { state.duo.hp = 0; state.status = 'lost'; }

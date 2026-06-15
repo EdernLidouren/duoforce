@@ -24,6 +24,7 @@ import {
   hasAreaStatus,
 } from './statuses.js';
 import { emitEvent } from './events.js';
+import { applyPerkModifiers, evaluatePerkTriggers } from './perks.js';
 
 /** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
 const EXHAUSTION_ID = 'power_exhaustion_status';
@@ -217,8 +218,9 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
   const board = cloneBoard(boardState);
   work.board = board;
 
-  // 1) Modificateurs de statuts, avant la résolution.
+  // 1) Modificateurs de statuts ET de signatures, avant la résolution.
   applyModifiers(work);
+  applyPerkModifiers(work);
 
   const activationByPos = {};
   for (const pos of RESOLUTION_ORDER) {
@@ -235,8 +237,9 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
     ctx.effects = []; // journal des effets de ce pouvoir (pour les messages)
     if (typeof power.customResolve === 'function') power.customResolve(ctx);
 
-    // 2) Triggers de statuts, après chaque pouvoir résolu.
+    // 2) Triggers de statuts ET de signatures, après chaque pouvoir résolu.
     evaluateTriggers(work, ctx);
+    evaluatePerkTriggers(work, ctx);
 
     activationByPos[pos] = { position: pos, powerId: power.id, effects: ctx.effects };
   }
