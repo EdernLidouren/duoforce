@@ -8,11 +8,13 @@
 import { power_exhaustion_status } from './power_exhaustion_status.js';
 import { hero_poison_status } from './hero_poison_status.js';
 import { area_freeze_status } from './area_freeze_status.js';
+import { area_anchor_status } from './area_anchor_status.js';
 
 export const STATUSES = [
   power_exhaustion_status,
   hero_poison_status,
   area_freeze_status,
+  area_anchor_status,
 ];
 
 /** Index id → définition de status. */

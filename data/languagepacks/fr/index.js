@@ -216,11 +216,15 @@ export default {
     },
     hero_poison_status: {
       name: 'poison',
-      description: 'À la fin du tour, inflige {compteur} dégâts imblocables puis réduit de 1.',
+      description: 'À la fin du tour, inflige {compteur} dégâts imbloquables puis réduit de 1.',
     },
     area_freeze_status: {
       name: 'gel',
-      description: 'Annule les effets des pouvoirs offensifs ou de soutien placés ici.',
+      description: 'Annule le pouvoir dans cette zone si son type est offensif ou soutien.',
+    },
+    area_anchor_status: {
+      name: 'ancrage',
+      description: 'Le pouvoir dans cette zone ne peut pas être déplacé sur le plateau.',
     },
   },
 
@@ -229,10 +233,16 @@ export default {
     hero_paladium: 'Paladium',
   },
 
-  // Noms des signatures (perks), indexés par id.
+  // Nom + description de chaque signature (perk), indexés par id.
   perks: {
-    rusted_armor_perk: 'Armure rouillée',
-    blue_comet_mark_perk: 'marque de la comète bleue',
+    rusted_armor_perk: {
+      name: 'Armure rouillée',
+      description: '+2 défense à la fin du tour.',
+    },
+    blue_comet_mark_perk: {
+      name: 'marque de la comète bleue',
+      description: 'À la fin du tour, +1 attaque pour tous les 3 pouvoirs annulés par un statut de zone.',
+    },
   },
 
   // Noms des ennemis (indexés par nameId).

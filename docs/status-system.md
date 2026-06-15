@@ -262,6 +262,32 @@ La zone 4 est gelée ce tour ; son éventuel pouvoir offensif/soutien est neutra
 Le statut vit sur `board[4].statuses` et persiste jusqu'à expiration, quels que
 soient les pouvoirs qui occupent la zone au fil des tours.
 
+## Exemple 4 — Ancrage (`area_anchor_status`, durée, zone)
+
+Cible une **zone** (`target: 'area'`). Empêche le **déplacement** du pouvoir de
+cette zone sur le plateau (ex. échange via une manœuvre). Contrairement au gel,
+il **n'affecte pas la résolution** : un pouvoir ancré résout normalement. Même
+structure de zone que le gel (limite 1, `onLimitReached: 'overwrite'`, durée
+décrémentée par `onTurnEnd`).
+
+```js
+// src/data/statuses/area_anchor_status.js
+export const area_anchor_status = {
+  id: 'area_anchor_status',
+  stackable: false,
+  onLimitReached: 'overwrite',
+  modifiers: [],
+  triggers: [],
+  onTurnEnd: (status) => { status.stacks -= 1; },
+};
+```
+
+L'interdiction de déplacement n'est pas portée par la définition : elle sera
+appliquée par le **système de déplacement** (manœuvres, à venir) qui consultera
+`hasAreaStatus(combatState, position, 'area_anchor_status')` avant de bouger un
+pouvoir. Aujourd'hui, le statut s'applique, se compte et s'éteint correctement,
+mais aucun déplacement n'existe encore à bloquer.
+
 ---
 
 # Signatures (perks) — `src/engine/perks.js`

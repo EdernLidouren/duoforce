@@ -212,7 +212,11 @@ export default {
     },
     area_freeze_status: {
       name: 'freeze',
-      description: 'Cancels the effects of offensive or support powers placed here.',
+      description: 'Cancels the power in this area if its type is offensive or support.',
+    },
+    area_anchor_status: {
+      name: 'anchor',
+      description: 'The power in this area cannot be moved on the board.',
     },
   },
 
@@ -221,10 +225,16 @@ export default {
     hero_paladium: 'Paladium',
   },
 
-  // Signature (perk) names, indexed by id.
+  // Name + description of each signature (perk), indexed by id.
   perks: {
-    rusted_armor_perk: 'rusted armor',
-    blue_comet_mark_perk: 'blue comet mark',
+    rusted_armor_perk: {
+      name: 'rusted armor',
+      description: '+2 defense at the end of the turn.',
+    },
+    blue_comet_mark_perk: {
+      name: 'blue comet mark',
+      description: 'At the end of the turn, +1 attack for every 3 powers cancelled by an area status.',
+    },
   },
 
   enemies: {
