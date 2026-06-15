@@ -34,7 +34,9 @@ En cas de victoire, le joueur est amené sur la prochaine scène de préparation
 ## Mécaniques :
 Les valeurs numériques précédées d'une * ne sont pas hardcodées et peuvent donc être modifiées par diverses sources.
 L'ordre de lecture (activation, défausse, distribution) des pouvoirs sur le plateau est le suivant, en se référant à un clavier numérique d'ordinateur  : 789456123
-Il existe une pioche, une défausse et un exil. Un pouvoir est placé dans la défausse à la fin du tour. Si l'on veut piocher X cartes mais que la pioche n'a pas assez de pouvoirs, on la reconstitue à partir de la défausse. Si cela est toujours insuffisant, on baisse x jusqu'à la taille actuelle de la pioche.
+Zones : Les neuf cases du plateau sont des objets à part entière : chacune peut porter un statut. Une case ne possède qu'un seul statut à la fois ; en appliquer un nouveau remplace l'ancien. Les statuts de case persistent d'un tour à l'autre (la case survit à la redistribution des pouvoirs). Voir docs/status-system.md (cible « area »).
+Défausse : Un pouvoir explicitement défaussé, ou encore présent sur le plateau en fin de tour, est envoyé à la défausse. Lors du remplissage du plateau en début de tour, si la pioche est vide, on mélange la défausse pour constituer une nouvelle pioche.
+Exil : Une carte explicitement exilée est retirée du plateau, de la pioche ou de la défausse pour être placée à part (pile d'exil). Si, en constituant une nouvelle pioche, celle-ci contient moins de neuf pouvoirs, on vide l'exil pour réinjecter son contenu dans la nouvelle pioche — et le duo subit alors des dégâts imbloquables (ignorant la défense) égaux à la moitié (*) de ses points de vie max. Si tout reste insuffisant, on pioche moins de cartes que demandé.
 En fin de combat, pioche, défausse et exil ne sont pas sauvegardés.
 manoeuvres : Contre une manoeuvre, le joueur peut échanger la position d'un pouvoir sur le plateau avec un pouvoir adjacent.
 stratégie : Contre une stratégie, le joueur peut défausser un pouvoir sur le plateau, puis le remplacer par une sélection des *3 premières cartes de la pioche. Celle-ci est mélangée ensuite.

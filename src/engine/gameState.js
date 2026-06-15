@@ -48,3 +48,12 @@ export const MAX_STATUSES_PER_ENEMY = Infinity;
 export const MAX_STATUSES_PER_ENTITY = Infinity;
 /** Statuts simultanés sur une zone du plateau. */
 export const MAX_STATUSES_PER_AREA = 1;
+
+// --- Pioche / défausse / exil -----------------------------------------------
+
+/**
+ * Quand la pioche doit être reconstituée et qu'elle compterait MOINS de cartes
+ * que nécessaire pour remplir le plateau, on réinjecte l'exil — au prix de
+ * dégâts imblocables infligés au duo, égaux à cette fraction de ses PV max.
+ */
+export const EXILE_REFILL_HP_PENALTY_RATIO = 0.5;

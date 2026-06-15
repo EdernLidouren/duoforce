@@ -30,6 +30,7 @@ import {
   DEFAULT_ENEMY_HP,
   DEFAULT_ENEMY_ATTACK,
   DEFAULT_ENEMY_DEFENSE,
+  EXILE_REFILL_HP_PENALTY_RATIO,
 } from './gameState.js';
 
 // --- Utilitaires ------------------------------------------------------------
@@ -97,11 +98,67 @@ function createBoard() {
   }));
 }
 
+// --- Défausse / exil --------------------------------------------------------
+
+/**
+ * Défausse explicitement un pouvoir présent sur le plateau : il quitte sa zone
+ * et rejoint la défausse. (Les pouvoirs encore en place en fin de tour sont eux
+ * défaussés automatiquement par startTurn.)
+ * @param {object} state
+ * @param {object} power  l'instance de pouvoir à défausser
+ * @returns {boolean} true si le pouvoir a été trouvé et défaussé
+ */
+export function discardPower(state, power) {
+  const area = state.board.find((a) => a.power === power);
+  if (!area) return false;
+  state.discard.push(area.power);
+  area.power = null;
+  return true;
+}
+
+/**
+ * Exile explicitement un pouvoir : on le retire du plateau, de la pioche OU de la
+ * défausse, et on le place à part (pile d'exil). Un pouvoir exilé ne revient dans
+ * la pioche que si une reconstitution l'exige (voir reconstituteDeck). Mute l'état.
+ * @param {object} state
+ * @param {object} power  l'instance de pouvoir à exiler
+ * @returns {boolean} true si le pouvoir a été trouvé et exilé
+ */
+export function exilePower(state, power) {
+  const area = state.board.find((a) => a.power === power);
+  if (area) { state.exile.push(area.power); area.power = null; return true; }
+  let i = state.deck.indexOf(power);
+  if (i >= 0) { state.exile.push(state.deck.splice(i, 1)[0]); return true; }
+  i = state.discard.indexOf(power);
+  if (i >= 0) { state.exile.push(state.discard.splice(i, 1)[0]); return true; }
+  return false;
+}
+
 // --- Pioche -----------------------------------------------------------------
 
 /**
- * Pioche jusqu'à n pouvoirs. Reconstitue la pioche depuis la défausse quand elle
- * est vide ; si tout est épuisé, pioche moins que demandé. Mute l'état.
+ * Reconstitue la pioche à partir de la défausse (mélangée). Si la pioche ainsi
+ * obtenue compte MOINS de HAND_SIZE pouvoirs et que l'exil n'est pas vide, on
+ * vide l'exil dans la pioche (re-mélangée) — et le duo subit des dégâts
+ * IMBLOQUABLES (ignorent la défense) égaux à une fraction de ses PV max.
+ * @param {object} state
+ */
+function reconstituteDeck(state) {
+  state.deck = shuffle(state.discard, state.rng);
+  state.discard = [];
+
+  if (state.deck.length < HAND_SIZE && state.exile.length > 0) {
+    state.deck = shuffle(state.deck.concat(state.exile), state.rng);
+    state.exile = [];
+    const penalty = Math.floor(state.duo.maxHp * EXILE_REFILL_HP_PENALTY_RATIO);
+    state.duo.hp -= penalty; // imblocable : touche directement les PV
+  }
+}
+
+/**
+ * Pioche jusqu'à n pouvoirs. Reconstitue la pioche quand elle est vide (défausse,
+ * puis exil si nécessaire — cf. reconstituteDeck) ; si tout est épuisé, pioche
+ * moins que demandé. Mute l'état.
  * @param {object} state
  * @param {number} n
  * @returns {Array} pouvoirs piochés
@@ -110,9 +167,9 @@ function drawPowers(state, n) {
   const drawn = [];
   for (let i = 0; i < n; i++) {
     if (state.deck.length === 0) {
-      if (state.discard.length === 0) break; // pioche et défausse vides
-      state.deck = shuffle(state.discard, state.rng);
-      state.discard = [];
+      if (state.discard.length === 0 && state.exile.length === 0) break; // tout est vide
+      reconstituteDeck(state);
+      if (state.deck.length === 0) break; // rien à reconstituer
     }
     drawn.push(state.deck.pop());
   }

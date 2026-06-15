@@ -1,6 +1,21 @@
 mécanique :
 
-Les neuf cases du platau des pouvoirs sont des objets à part entière, dans le sens où chacune peut posséder un statut. Une case ne peut posséder qu'un statut à la fois, un nouveau remplace l'ancien.
+Zones : Les neuf cases du platau des pouvoirs sont des objets à part entière, dans le sens où chacune peut posséder un statut. Une case ne peut posséder qu'un statut à la fois, un nouveau remplace l'ancien.
+
+Défausse : Quand un pouvoir est explicitement défaussé ou qu'il se trouve sur le plateau en fin de tour, il est envoyé à la défausse. Si, lors du remplissage du plateau en début de tour, la pioche est vide, on mélange la défausse pour constituer une nouvelle pioche.
+
+Exil : Une carte explicitement exilée est retirée du plateau, de la pioche ou de la défausse pour être placée à part. Si, en essayant de constituer une nouvelle pioche, celle--ci contient moins de neuf pouvoirs, alors on vide l'exil pour réinjecter son contenu dansn la nouvelle pioche. Le duo subit un nombre de dégâts imbloquables égal à la moitié de ses points de vie max.
+
+
+signatures (perks dans le code):
+
+id : rusted_armor_perk
+nom (fr, en) : Armure rouillée, rusted armor
+description en jeu : +2 défense à la fin du tour.
+
+id : blue_comet_mark_perk
+nom (fr, en) : marque de la comète bleue, blue comet mark
+description en jeu : À la fin du tour, +1 attaque pour tous les 3 pouvoirs annulés par un statut de zone.
 
 Statuts :
 
@@ -20,6 +35,11 @@ id : area_freeze_status
 nom (fr, en) : gel, freeze
 Description mécanique : Annule les effets du pouvoir dans cette case si son type est offensif ou soutien.
 Description en jeu : Annule le pouvoir dans cette zone si son type est offensif ou soutien.
+
+id : area_anchor_status
+nom (fr, en) : ancrage, anchor
+Description mécanique : Empêche le déplacement du pouvoir de cette zone sur le plateau.
+Description en jeu : Le pouvoir dans cette zone ne peut pas être déplacé sur le plateau.
 
 pouvoirs :
 
@@ -84,7 +104,47 @@ Description en jeu : +1 défense, +1 manoeuvre et +1 statut gel sur cette case.
 id : blizzard_power
 nom (fr, en) : blizzard, blizzard
 Description mécanique : Si le pouvoir est sur la ligne supérieure et que le joueur a au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. +2 attaque sinon.
-Description en jeu : Si à la surface ou au ciel et que vous avez au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. +2 attaque sinon.
+Description en jeu : Si à la surface ou au ciel et que vous avez au moins 1 manoeuvre, +5 attaque et -1 manoeuvre. Sinon +2 attaque.
+
+id : cool-headed_power
+nom (fr, en) : Tête froide, cool-headed
+Description mécanique : Si un pouvoir de type offensif est adjacent, +1 défense. +1 stratégie sinon.
+Description en jeu : +1 défense si un pouvoir adjacent est de type offensif. Sinon +1 stratégie.
+
+id : frozen_lace_power
+nom (fr, en) : Dentelle de givre, frozen lace
+Description mécanique : +3 crédit si la case a le statut gel. +1 crédit sinon.
+Description en jeu : Si la zone a le statut gel, +3 crédit. Sinon +1 crédit.
+
+id : icy_step_power
+nom (fr, en) : Pas glacial, icy step
+Description mécanique : Si sur la ligne inférieure, +1 manoeuvre, +1 défense et +1 statut gel sur la case. +1 défense sinon.
+Description en jeu : Si sur terre, +1 défense et +1 manoeuvre, et +1 statut gel sur la zone. Sinon +1 défense.
+
+id : winter_dress_power
+nom (fr, en) : Robe d'hiver, winter dress
+Description mécanique : Pour chaque zone adjacente et la zone du pouvoir possédant le statut gel, +1 crédit et +1 défense.
+Description en jeu : Pour cette zone et chaque zone adjacente avec le statut gel, +1 crédit et +1 défense.
+
+id : gravity_beam_power
+nom (fr, en) : Rayon gravitationnel, gravity beam
+Description mécanique : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque, et le pouvoir en question gagne 1 statut ancrage.
+Description en jeu : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage à chaque pouvoir.
+
+id : weightlessness_power
+nom (fr, en) : impesanteur, weightlessness
+Description mécanique : Si le pouvoir est sur la ligne inférieure ou la ligne du milieu, +1 manoeuvre. Sinon +1 stratégie. Si la case contenant ce pouvoir a le statut ancrage, alors les effets du pouvoir sont annulés.
+Description en jeu : Si sur terre ou à la surface, +1 manoeuvre. Sinon +1 stratégie. Aucun effet si la zone a le statut ancrage.
+
+id : snow_dance_power
+nom (fr, en) : Danse des neiges, snow dance
+Description mécanique : Gagne autant de crédit que le joueur a de manoeuvres actuellement, pour un maximum de 3 crédits.
+Description en jeu : +1 crédit pour chaque manoeuvre que vous possédez, Jusqu'à 3.
+
+id : icycle_power
+nom (fr, en) : Stalagtite, icycle
+Description mécanique : Si une zone adjacente a le statut gel, +3 attaque. Sinon +1 attaque. Dans tous les cas, +1 statut gel sur cette zone.
+Description en jeu : Si une zone adjacente a le statut gel, +3 attaque. Sinon +1 attaque. Dans tous les cas, +1 statut gel sur cette zone.
 
 
 Héros :
@@ -92,3 +152,9 @@ Héros :
 id : paladium_hero
 nom (fr, en) : Paladium, Paladium
 pouvoirs de départ : iron_will, impregnable, helmbutt, iron_grip, shield_charge, metalloy, heavy_slam, force_palm, close_protection, lead_boots
+signature de départ : rusted_armor
+
+id : mindel_hero
+nom (fr, en) : Mindel, Mindel
+pouvoirs de départ : arctic_veil, snow_dance, icycle, frozen_lace, weightlessness, gravity_beam, icy_step, blizzard, winter_dress, cool-headed
+signature de départ : blue_comet_mark
