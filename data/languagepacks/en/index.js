@@ -27,6 +27,8 @@ export default {
     actions: 'Actions',
     history: 'History',
     noMessages: 'No messages.',
+    noSignature: 'No signature.',
+    and: 'and',
     instructions: 'Tab to switch zone, arrow keys to navigate.',
     attack: 'Attack',
     defense: 'Defense',
@@ -102,6 +104,19 @@ export default {
   power: {
     short: '{name}, {type}, {rarity}',
     long: '{name}, {type}, {rarity}: {description}',
+  },
+
+  // Long-description template for a signature (perk).
+  perk: {
+    long: '{name}: {description}',
+  },
+
+  // User preferences (name + description), indexed by the option name.
+  preferences: {
+    menuCycling: {
+      name: 'Menu cycling',
+      description: 'At a menu edge, pressing the direction wraps the cursor to the other end instead of staying blocked.',
+    },
   },
 
   // Combat messages (end of turn). Template + per-stat labels.

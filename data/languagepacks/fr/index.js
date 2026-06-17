@@ -29,6 +29,8 @@ export default {
     actions: 'Actions',
     history: 'Historique',
     noMessages: 'Aucun message.',
+    noSignature: 'Aucune signature.',
+    and: 'et',
     instructions: 'Tabulation pour changer de zone, flèches pour naviguer.',
     attack: 'Attaque',
     defense: 'Défense',
@@ -107,6 +109,19 @@ export default {
   power: {
     short: '{name}, {type}, {rarity}',
     long: '{name}, {type}, {rarity} : {description}',
+  },
+
+  // Gabarit de description longue d'une signature (perk).
+  perk: {
+    long: '{name} : {description}',
+  },
+
+  // Préférences utilisateur (nom + description), indexées par le nom de l'option.
+  preferences: {
+    menuCycling: {
+      name: 'Cyclage des menus',
+      description: 'Au bord d’un menu, presser la direction renvoie le curseur à l’autre extrémité au lieu de rester bloqué.',
+    },
   },
 
   // Messages de combat (fin de tour). Gabarit + libellés par statistique.

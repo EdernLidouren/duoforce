@@ -36,6 +36,8 @@ import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybinding
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
 import { longDescription, powerName } from '../ui/powerText.js';
+import { perkLongDescription } from '../ui/perkText.js';
+import { createListNavigator } from '../ui/listNavigation.js';
 import { turnMessages, resolutionMessages, turnStartMessage } from '../ui/combatMessages.js';
 
 /** Disposition visuelle du plateau : lignes ciel / surface / terre. */
@@ -89,7 +91,11 @@ export function createCombatScene() {
   let boardY = 0;
   let actionCursor = 0;
   let actions = [];
-  let historyCursor = -1; // index de l'élément d'historique sous le curseur
+
+  // Navigateurs verticaux des zones « liste » (duo, ennemi, historique).
+  let duoNav = null;
+  let enemyNav = null;
+  let historyNav = null;
 
   // --- Accès aux chaînes -----------------------------------------------------
 
@@ -113,6 +119,8 @@ export function createCombatScene() {
       actions: c.actions ?? 'Actions',
       history: c.history ?? 'Historique',
       noMessages: c.noMessages ?? 'Aucun message.',
+      noSignature: c.noSignature ?? 'Aucune signature.',
+      and: c.and ?? 'et',
       instructions: c.instructions ?? 'Tabulation pour changer de zone, flèches pour naviguer.',
       hp: resource('hp').name ?? 'Points de vie',
       attack: c.attack ?? 'Attaque',
@@ -149,10 +157,11 @@ export function createCombatScene() {
     refs = { enemy: {}, duo: {}, actions: {} };
     const enemyZoneEl = el('section', {},
       el('h2', { textContent: L.enemy }),
-      (refs.enemy.hp = el('p', {})),
-      (refs.enemy.attack = el('p', {})),
-      (refs.enemy.defense = el('p', {})),
+      (refs.enemy.vitals = el('p', {})),  // nom + points de vie
+      (refs.enemy.combat = el('p', {})),  // attaque + défense
+      (refs.enemy.perks = el('div', {})), // signatures (rendues dans updateView)
     );
+    refs.enemy.section = enemyZoneEl;
 
     tdByIndex = new Map();
     const colHeaders = [L.left, L.center, L.right];
@@ -186,13 +195,12 @@ export function createCombatScene() {
 
     const duoZoneEl = el('section', {},
       el('h2', { textContent: L.duo }),
-      (refs.duo.hp = el('p', {})),
-      (refs.duo.attack = el('p', {})),
-      (refs.duo.defense = el('p', {})),
-      (refs.duo.maneuvers = el('p', {})),
-      (refs.duo.strategies = el('p', {})),
-      (refs.duo.credit = el('p', {})),
+      (refs.duo.vitals = el('p', {})),     // noms + points de vie
+      (refs.duo.combat = el('p', {})),     // attaque + défense
+      (refs.duo.resources = el('p', {})),  // manœuvres + stratégies + crédit
+      (refs.duo.perks = el('div', {})),    // signatures (rendues dans updateView)
     );
+    refs.duo.section = duoZoneEl;
 
     const endTurnBtn = el('button', { type: 'button', tabIndex: -1, textContent: L.endTurn, onclick: endTurn });
     const backBtn = el('button', { type: 'button', tabIndex: -1, textContent: L.backToMenu, onclick: () => context.router.go('menu') });
@@ -225,12 +233,23 @@ export function createCombatScene() {
       historyZoneEl,
     );
 
+    // Navigateurs « menu vertical » : une ligne par information.
+    //   - duo / ennemi : chaque <p> de la zone (stats puis signatures) ;
+    //   - historique   : chaque message (<li>).
+    const lines = (sectionEl) => Array.from(sectionEl.querySelectorAll('p'), (p) => p.textContent);
+    duoNav = createListNavigator({ getItems: () => lines(refs.duo.section), announce: say });
+    enemyNav = createListNavigator({ getItems: () => lines(refs.enemy.section), announce: say });
+    historyNav = createListNavigator({
+      getItems: () => Array.from(refs.history.children, (li) => li.textContent),
+      announce: say,
+    });
+
     const zones = [
-      { id: 'enemy', element: enemyZoneEl, label: L.enemy, onEnter: () => describeEnemy() },
-      { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => describeDuo() },
+      { id: 'enemy', element: enemyZoneEl, label: L.enemy, onEnter: () => enemyNav.reset(), onKey: (e) => enemyNav.onKey(e) },
+      { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => duoNav.reset(), onKey: (e) => duoNav.onKey(e) },
       { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
-      { id: 'history', element: historyZoneEl, label: L.history, onEnter: () => describeHistory(), onKey: onHistoryKey },
+      { id: 'history', element: historyZoneEl, label: L.history, onEnter: () => describeHistory(), onKey: (e) => historyNav.onKey(e) },
     ];
 
     controller = createZoneController({
@@ -243,21 +262,10 @@ export function createCombatScene() {
   }
 
   // --- Descriptions (annonces) ----------------------------------------------
-
-  function describeEnemy() {
-    const L = labels();
-    const e = state.enemy;
-    return `${L.hp} ${e.hp}/${e.maxHp}, ${L.attack} ${e.attack}, ${L.defense} ${e.defense}`;
-  }
-
-  function describeDuo() {
-    const L = labels();
-    const d = state.duo;
-    return (
-      `${L.hp} ${d.hp}/${d.maxHp}, ${L.attack} ${d.attack}, ${L.defense} ${d.defense}, ` +
-      `${L.maneuvers} ${d.maneuver}, ${L.strategies} ${d.strategy}, ${L.credit} ${d.credit}`
-    );
-  }
+  //
+  // Les zones duo / ennemi sont des MENUS VERTICAUX : leur contenu est annoncé
+  // ligne par ligne via leur navigateur (duoNav / enemyNav), qui lit directement
+  // les <p> de la zone. Il n'y a donc plus de résumé unique describeDuo/Enemy.
 
   function boardIndexAt(x, y) {
     return BOARD_ROWS[y].indices[x];
@@ -309,41 +317,14 @@ export function createCombatScene() {
     }
   }
 
-  /** Annonce d'entrée de zone : dernier message, ou « aucun message ». */
-  function describeHistory() {
-    const items = refs.history.children;
-    if (items.length === 0) return labels().noMessages;
-    historyCursor = items.length - 1;
-    return items[historyCursor].textContent;
-  }
-
   /**
-   * Navigation dans l'historique :
-   *   - Flèches haut/bas : recule/avance d'un message. Au bord dans cette
-   *     direction, la touche est consommée mais RIEN n'est annoncé (le silence
-   *     signale clairement la fin du parcours).
-   *   - Origine / Fin : saute au premier / dernier message.
+   * Annonce d'entrée de zone Historique : place le curseur sur le dernier message
+   * et l'annonce, ou « aucun message » si l'historique est vide. La navigation
+   * (flèches, Origine/Fin, cyclage) est gérée par historyNav.
    */
-  function onHistoryKey(event) {
-    const items = refs.history.children;
-    if (items.length === 0) return false;
-    const last = items.length - 1;
-    const current = historyCursor < 0 ? last : historyCursor;
-
-    let target;
-    switch (event.key) {
-      case 'ArrowUp': target = Math.max(0, current - 1); break;
-      case 'ArrowDown': target = Math.min(last, current + 1); break;
-      case 'Home': target = 0; break;
-      case 'End': target = last; break;
-      default: return false;
-    }
-
-    // Bord atteint (aucun déplacement) : touche consommée, aucune annonce.
-    if (target === historyCursor) return true;
-    historyCursor = target;
-    say(items[historyCursor].textContent);
-    return true;
+  function describeHistory() {
+    if (refs.history.children.length === 0) return labels().noMessages;
+    return historyNav.toLast();
   }
 
   // --- Annonces des ressources / infos (raccourcis) -------------------------
@@ -459,25 +440,55 @@ export function createCombatScene() {
     actions.forEach((a, i) => a.button.classList.toggle('is-action-active', i === actionCursor));
   }
 
+  /**
+   * (Ré)affiche les signatures d'un camp dans son conteneur : une entrée par
+   * signature sous forme de description longue, ou « Aucune signature. ». Reconstruit
+   * à chaque tour pour rester dynamique (la description peut dépendre du contexte).
+   */
+  function renderPerks(container, perks) {
+    if (!container) return;
+    container.replaceChildren();
+    if (!perks || perks.length === 0) {
+      container.append(el('p', { textContent: labels().noSignature }));
+      return;
+    }
+    for (const perk of perks) {
+      container.append(el('p', { textContent: perkLongDescription(perk, context.strings) }));
+    }
+  }
+
+  /** Gabarit « {value} sur {max} points de vie » (repli si absent du pack). */
+  function hpText(value, max) {
+    return format(resource('hp').display ?? '{value}/{max}', { value, max });
+  }
+
+  /** Nom localisé d'un héros (repli sur son nameId). */
+  function heroName(hero) {
+    return context.strings?.heroes?.[hero.nameId] ?? hero.nameId;
+  }
+
   function updateView() {
     const L = labels();
     const { duo, enemy } = state;
 
-    refs.enemy.hp.textContent = `${L.hp} : ${enemy.hp}/${enemy.maxHp}`;
-    refs.enemy.attack.textContent = `${L.attack} : ${enemy.attack}`;
-    refs.enemy.defense.textContent = `${L.defense} : ${enemy.defense}`;
+    // Ennemi : ligne 1 « nom, pv » ; ligne 2 « attaque, défense » ; signatures.
+    refs.enemy.vitals.textContent = `${enemyName()}, ${hpText(enemy.hp, enemy.maxHp)}`;
+    refs.enemy.combat.textContent = `${L.attack} ${enemy.attack}, ${L.defense} ${enemy.defense}`;
+    renderPerks(refs.enemy.perks, enemy.perks);
 
     for (const [i, td] of tdByIndex) {
       const power = state.board[i].power;
       td.textContent = power ? powerName(power, context.strings) : L.empty;
     }
 
-    refs.duo.hp.textContent = `${L.hp} : ${duo.hp}/${duo.maxHp}`;
-    refs.duo.attack.textContent = `${L.attack} : ${duo.attack}`;
-    refs.duo.defense.textContent = `${L.defense} : ${duo.defense}`;
-    refs.duo.maneuvers.textContent = `${L.maneuvers} : ${duo.maneuver}`;
-    refs.duo.strategies.textContent = `${L.strategies} : ${duo.strategy}`;
-    refs.duo.credit.textContent = `${L.credit} : ${duo.credit}`;
+    // Duo : ligne 1 « noms, pv » ; ligne 2 « attaque, défense » ; ligne 3
+    // « manœuvres, stratégies, crédit » ; signatures.
+    const duoNames = state.heroes.map((hero) => heroName(hero)).join(` ${L.and} `);
+    refs.duo.vitals.textContent = `${duoNames}, ${hpText(duo.hp, duo.maxHp)}`;
+    refs.duo.combat.textContent = `${L.attack} ${duo.attack}, ${L.defense} ${duo.defense}`;
+    refs.duo.resources.textContent =
+      `${duo.maneuver} ${L.maneuvers}, ${duo.strategy} ${L.strategies}, ${duo.credit} ${L.credit}`;
+    renderPerks(refs.duo.perks, duo.perks);
 
     refs.actions.turn.textContent = `${L.turn} ${state.turn}`;
     refs.counters.textContent = `${L.deck} : ${state.deck.length} · ${L.discard} : ${state.discard.length} · ${L.exile} : ${state.exile.length}`;
@@ -614,7 +625,9 @@ export function createCombatScene() {
       boardX = 0;
       boardY = 0;
       actionCursor = 0;
-      historyCursor = -1;
+      duoNav = null;
+      enemyNav = null;
+      historyNav = null;
     },
   };
 }

@@ -17,6 +17,8 @@ export const Intent = Object.freeze({
   MOVE_DOWN: 'move-down',
   MOVE_LEFT: 'move-left',
   MOVE_RIGHT: 'move-right',
+  MOVE_FIRST: 'move-first', // Origine
+  MOVE_LAST: 'move-last',   // Fin
   CONFIRM: 'confirm',
   CANCEL: 'cancel',
 });
@@ -27,6 +29,8 @@ export const defaultKeymap = Object.freeze({
   ArrowDown: Intent.MOVE_DOWN,
   ArrowLeft: Intent.MOVE_LEFT,
   ArrowRight: Intent.MOVE_RIGHT,
+  Home: Intent.MOVE_FIRST,
+  End: Intent.MOVE_LAST,
   Enter: Intent.CONFIRM,
   ' ': Intent.CONFIRM,
   Escape: Intent.CANCEL,

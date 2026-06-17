@@ -17,6 +17,8 @@
 // cohérent avec l'approche « inputs clavier custom + ARIA live ».
 
 import { attachInput, Intent } from '../input.js';
+import { preferences } from '../preferences.js';
+import { resolveListMove, EDGE_MARK } from '../listNavigation.js';
 
 export class AbstractMenu {
   /**
@@ -100,9 +102,10 @@ export class AbstractMenu {
   /**
    * Définit l'item actif, met à jour le DOM et (sauf silencieux) l'annonce.
    * @param {number} index
-   * @param {{silent?: boolean}} [opts]
+   * @param {{silent?: boolean, edge?: boolean}} [opts]
+   *   edge : préfixe l'annonce de « * » (bord atteint : blocage ou bouclage).
    */
-  setActive(index, { silent = false } = {}) {
+  setActive(index, { silent = false, edge = false } = {}) {
     if (index < 0 || index >= this.items.length) return;
     this.activeIndex = index;
 
@@ -117,7 +120,8 @@ export class AbstractMenu {
     });
 
     if (!silent && this.announce) {
-      this.announce.polite(this.describe(this.items[index], index));
+      const text = this.describe(this.items[index], index);
+      this.announce.polite(edge ? EDGE_MARK + text : text);
     }
   }
 
@@ -154,10 +158,37 @@ export class AbstractMenu {
       this.onCancel();
       return;
     }
+    // Navigation « liste » mutualisée (cyclage, Origine/Fin, bords) si la
+    // sous-classe la fournit (menus linéaires) ; sinon, déplacement legacy.
+    if (this._navigate(intent)) return;
     const next = this.move(intent);
     if (next !== null && next !== undefined) {
       this.setActive(next);
     }
+  }
+
+  /**
+   * Tente une navigation via la logique de liste partagée. Renvoie true si
+   * l'intention a été gérée. Par défaut non géré (les sous-classes linéaires
+   * surchargent _navigate) ; GridMenu retombe sur move().
+   * @param {string} _intent
+   * @returns {boolean}
+   */
+  _navigate(_intent) {
+    return false;
+  }
+
+  /**
+   * Applique une commande de navigation (NavCommand) via resolveListMove :
+   * déplace l'item actif et l'annonce (avec « * » au bord), en respectant la
+   * préférence de cyclage. Utilisé par les sous-classes linéaires.
+   * @param {string} command
+   */
+  _applyNavCommand(command) {
+    const { index, edge, announce } = resolveListMove(
+      this.activeIndex, this.items.length, command, preferences.menuCycling,
+    );
+    if (announce) this.setActive(index, { edge });
   }
 
   /** Construit l'arbre DOM du menu dans this._root. */
