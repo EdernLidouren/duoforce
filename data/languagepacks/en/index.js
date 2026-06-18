@@ -103,7 +103,13 @@ export default {
 
   power: {
     short: '{name}, {type}, {rarity}',
-    long: '{name}, {type}, {rarity}: {description}',
+    // On-board long description: no type/rarity (design decision).
+    long: '{name}: {description}',
+  },
+
+  // Short-description template for a status: name + counter.
+  status: {
+    short: '{name} {stacks}',
   },
 
   // Long-description template for a signature (perk).

@@ -212,6 +212,11 @@ export function hasEntityStatus(combatState, entity, statusId) {
   return Array.isArray(list) && list.some((st) => st.id === statusId);
 }
 
+/** Liste des status portés par une entité (tableau, éventuellement vide). */
+export function getEntityStatuses(combatState, entity) {
+  return combatState.statuses?.entities?.get(entity) ?? [];
+}
+
 /** Présence d'un status sur une zone. */
 export function hasAreaStatus(combatState, position, statusId) {
   const list = combatState.board?.[position]?.statuses;

@@ -108,7 +108,13 @@ export default {
   // Gabarits de description des pouvoirs (interpolés).
   power: {
     short: '{name}, {type}, {rarity}',
-    long: '{name}, {type}, {rarity} : {description}',
+    // Description longue SUR LE PLATEAU : sans type ni rareté (cf. design).
+    long: '{name} : {description}',
+  },
+
+  // Gabarit de description courte d'un statut : nom + compteur.
+  status: {
+    short: '{name} {stacks}',
   },
 
   // Gabarit de description longue d'une signature (perk).

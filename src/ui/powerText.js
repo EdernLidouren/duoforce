@@ -5,13 +5,15 @@
 // se traduisent via les packs `powerTypes` et `rarities`. Ce module compose, à
 // partir de gabarits localisés (`power.short`, `power.long`), deux textes :
 //
-//   - description courte : "{name}, {type}, {rarity}"
-//   - description longue  : "{name}, {type}, {rarity} : {description}"
+//   - description courte : "{name}, {type}, {rarity}"  (hors combat : deck, boutique…)
+//   - description longue  : "{name}[, {statuts}] : {description}"  (case de combat ;
+//     sans type ni rareté, statuts du pouvoir insérés après le nom)
 //
 // Tout est interpolé via format(), pour rester localisable et dynamique.
 // Aucun DOM ; ne dépend que des données et du pack de langue passé en argument.
 
 import { format } from './format.js';
+import { statusListShort } from './statusText.js';
 
 /**
  * Nom localisé d'un pouvoir (repli sur l'id si absent).
@@ -49,16 +51,24 @@ export function shortDescription(power, strings) {
 }
 
 /**
- * Description longue : nom, type, rareté, puis description.
+ * Description longue d'un pouvoir SUR LE PLATEAU : « {nom}[, {statuts}] : {description} ».
+ * Volontairement sans type ni rareté (cf. décision de design). Les éventuels
+ * statuts du pouvoir (ex. épuisement) sont insérés après le nom, avant les
+ * deux-points.
  * @param {object} power
  * @param {object} strings  pack de langue
+ * @param {Array} [powerStatuses]  instances de statut portées par ce pouvoir
  * @returns {string}
  */
-export function longDescription(power, strings) {
-  const parts = powerParts(power, strings);
-  // Description vide (effets non encore définis) → on s'en tient à la forme
-  // courte, sans deux-points orphelins.
-  if (!parts.description) return shortDescription(power, strings);
-  const template = strings?.power?.long ?? '{name}, {type}, {rarity} : {description}';
-  return format(template, parts);
+export function longDescription(power, strings, powerStatuses = []) {
+  const name = powerName(power, strings);
+  const statusPart = statusListShort(powerStatuses, strings);
+  const namePart = statusPart ? `${name}, ${statusPart}` : name;
+
+  const description = strings?.powers?.[power.id]?.description ?? '';
+  // Description vide → on s'en tient au nom (+ statuts), sans deux-points orphelins.
+  if (!description) return namePart;
+
+  const template = strings?.power?.long ?? '{name} : {description}';
+  return format(template, { name: namePart, description });
 }

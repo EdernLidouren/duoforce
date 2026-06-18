@@ -29,6 +29,7 @@ import {
   getOutcome,
 } from '../engine/combat.js';
 import { STRATEGY_PICK } from '../engine/gameState.js';
+import { getEntityStatuses } from '../engine/statuses.js';
 import { createEstimator } from '../engine/estimator.js';
 import { HEROES } from '../data/heroes/index.js';
 import { DUMMY_ENEMY } from '../data/enemies/index.js';
@@ -37,6 +38,7 @@ import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
 import { longDescription, powerName } from '../ui/powerText.js';
 import { perkLongDescription } from '../ui/perkText.js';
+import { statusListShort } from '../ui/statusText.js';
 import { createListNavigator } from '../ui/listNavigation.js';
 import { turnMessages, resolutionMessages, turnStartMessage } from '../ui/combatMessages.js';
 
@@ -279,14 +281,32 @@ export function createCombatScene() {
     return { x: 0, y: 0 };
   }
 
-  /** Annonce d'une case : « <description longue | vide>, <ligne> <colonne> ». */
+  /** Met une majuscule à la première lettre (casse de phrase). */
+  function capitalizeFirst(text) {
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+  }
+
+  /**
+   * Annonce d'une case. Ordre : statuts de la ZONE (descriptions courtes), puis
+   * le pouvoir avec ses propres statuts (description longue de plateau), puis la
+   * position. Exemples :
+   *   « Gel 1, Plaquage lourd, épuisement 1 : +4 attaque…, Ciel Droite »
+   *   « Bouclier : +1 défense…, Surface Gauche »
+   */
   function describeCellAt(index) {
     const L = labels();
+    const area = state.board[index];
     const { x, y } = positionOf(index);
     const position = `${[L.sky, L.surface, L.ground][y]} ${[L.left, L.center, L.right][x]}`;
-    const power = state.board[index].power;
-    if (!power) return `${L.empty}, ${position}`;
-    return `${longDescription(power, context.strings)}, ${position}`;
+    const power = area.power;
+
+    const areaPart = statusListShort(area.statuses, context.strings); // statuts de zone
+    const core = power
+      ? longDescription(power, context.strings, getEntityStatuses(state, power))
+      : L.empty;
+    const content = areaPart ? `${areaPart}, ${core}` : core;
+
+    return `${capitalizeFirst(content)}, ${position}`;
   }
 
   function describeCell() {
