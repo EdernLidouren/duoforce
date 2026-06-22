@@ -16,8 +16,10 @@
 //   'deal_damage'   target: 'duo'|'enemy'                 value: number  data.unblockable?
 //   'add_attack'    target: 'duo'|'enemy'                 value: number
 //   'add_defense'   target: 'duo'|'enemy'                 value: number
+//   'swap_powers'   source: number (pos source)  target: number (pos cible)
+//                   data.maxDistance?: number
+//   'spend_maneuver' target: 'duo'|'enemy'               value: number
 //   'move_power'    source: number (position)             target: number (position)
-//   'swap_powers'   source: number (position)             target: number (position)
 //
 // Pour target de type statut :
 //   type 'duo'    → héros du joueur
@@ -36,6 +38,7 @@ import {
   modifyStatusStacks,
 } from './statuses.js';
 import { getStatusDefById } from '../data/statuses/index.js';
+import { manhattanDistance } from './rules.js';
 import { MAX_ACTION_DEPTH } from './gameState.js';
 
 // --- Registre ---------------------------------------------------------------
@@ -114,10 +117,9 @@ export function validateAction(combatState, action) {
 /**
  * Point d'entrée principal : intercepteurs → exécution si non annulée.
  *
- * Garde-fou anti-cascade : si executeAction est appelé recursivement (ex. un
- * intercepteur déclenche une nouvelle action) au-delà de MAX_ACTION_DEPTH,
- * l'action est annulée et un avertissement identifiant le type fautif est loggé.
- * En jeu normal la profondeur est toujours 1.
+ * Garde-fou anti-cascade : si executeAction est appelé recursivement au-delà
+ * de MAX_ACTION_DEPTH, l'action est annulée et un avertissement identifiant
+ * le type fautif est loggé. En jeu normal la profondeur est toujours 1.
  *
  * @param {object} combatState
  * @param {object} action
@@ -147,14 +149,15 @@ export function executeAction(combatState, action) {
 
 function dispatch(combatState, action) {
   switch (action.type) {
-    case 'apply_status':  execApplyStatus(combatState, action);         break;
-    case 'remove_status': execRemoveStatus(combatState, action);        break;
-    case 'modify_status': execModifyStatus(combatState, action);        break;
-    case 'deal_damage':   execDealDamage(combatState, action);          break;
-    case 'add_attack':    execAddStat(combatState, action, 'attack');   break;
-    case 'add_defense':   execAddStat(combatState, action, 'defense');  break;
-    // 'move_power' / 'swap_powers' : exécuteur à venir avec les mécaniques de
-    // déplacement. Le pipeline (intercepteurs) est déjà actif pour ces types.
+    case 'apply_status':    execApplyStatus(combatState, action);        break;
+    case 'remove_status':   execRemoveStatus(combatState, action);       break;
+    case 'modify_status':   execModifyStatus(combatState, action);       break;
+    case 'deal_damage':     execDealDamage(combatState, action);         break;
+    case 'add_attack':      execAddStat(combatState, action, 'attack');  break;
+    case 'add_defense':     execAddStat(combatState, action, 'defense'); break;
+    case 'swap_powers':     execSwapPowers(combatState, action);         break;
+    case 'spend_maneuver':  execSpendManeuver(combatState, action);      break;
+    // 'move_power' : exécuteur à venir (déplacement unilatéral, sans cible).
     default: break;
   }
 }
@@ -181,9 +184,9 @@ function execRemoveStatus(combatState, action) {
   const { type, entity, position } = action.target ?? {};
   const { statusId } = action.value ?? {};
   if (!statusId) return;
-  if (type === 'entity')       rawRemoveEntityStatus(combatState, entity, statusId);
-  else if (type === 'area')    rawRemoveAreaStatus(combatState, position, statusId);
-  else if (type === 'duo' || type === 'enemy') rawRemoveStatus(combatState, statusId, type);
+  if (type === 'entity')                         rawRemoveEntityStatus(combatState, entity, statusId);
+  else if (type === 'area')                      rawRemoveAreaStatus(combatState, position, statusId);
+  else if (type === 'duo' || type === 'enemy')   rawRemoveStatus(combatState, statusId, type);
 }
 
 function execModifyStatus(combatState, action) {
@@ -203,6 +206,35 @@ function execAddStat(combatState, action, stat) {
   const subject = combatState[action.target];
   if (!subject || typeof action.value !== 'number') return;
   subject[stat] += action.value;
+}
+
+/**
+ * Échange les pouvoirs entre deux zones. Les statuts de zone restent attachés
+ * à leur zone physique ; les statuts d'entité voyagent avec le pouvoir (stockés
+ * dans combatState.statuses.entities par référence d'objet — la Map n'est pas
+ * modifiée, seules les références dans les zones bougent).
+ *
+ * Si la zone cible est vide, le pouvoir source s'y déplace et laisse sa zone
+ * d'origine vide.
+ */
+function execSwapPowers(combatState, action) {
+  const board = combatState.board;
+  if (!board) return;
+  const srcArea = board[action.source];
+  const tgtArea = board[action.target];
+  if (!srcArea || !tgtArea) return;
+  const tmp = srcArea.power;
+  srcArea.power = tgtArea.power;
+  tgtArea.power = tmp;
+}
+
+/**
+ * Décrémente une ressource de manœuvre (ou autre) du camp cible.
+ */
+function execSpendManeuver(combatState, action) {
+  const subject = combatState[action.target ?? 'duo'];
+  if (!subject || typeof action.value !== 'number') return;
+  subject.maneuver -= action.value;
 }
 
 // --- Intercepteurs natifs ----------------------------------------------------
@@ -230,7 +262,6 @@ function anchorInterceptor(action, combatState) {
  *
  * Immunité entity : le pouvoir ciblé porte le drapeau.
  * Immunité area   : le pouvoir occupant la zone porte le drapeau.
- * (duo/enemy : pas d'immunité dans le modèle actuel.)
  */
 function immunityInterceptor(action, combatState) {
   const { statusId } = action.value ?? {};
@@ -252,6 +283,32 @@ function immunityInterceptor(action, combatState) {
 }
 
 /**
+ * Bloque swap_powers si la zone source ne contient pas de pouvoir.
+ * Un échange sans pouvoir source n'a aucun sens — c'est une précondition
+ * fondamentale, pas un choix de règles, d'où son rôle d'intercepteur natif.
+ */
+function sourcePowerInterceptor(action, combatState) {
+  if (!combatState.board?.[action.source]?.power) {
+    action.cancelled = true;
+    action.reason = 'action.blocked.no_source_power';
+  }
+}
+
+/**
+ * Bloque swap_powers si la cible est hors de la portée maximale autorisée
+ * (data.maxDistance, en distance de Manhattan orthogonale). Sans maxDistance
+ * dans data, aucune limite n'est appliquée.
+ */
+function distanceInterceptor(action) {
+  const maxDistance = action.data?.maxDistance;
+  if (maxDistance == null) return;
+  if (manhattanDistance(action.source, action.target) > maxDistance) {
+    action.cancelled = true;
+    action.reason = 'action.blocked.out_of_range';
+  }
+}
+
+/**
  * Réinitialise le registre et enregistre les intercepteurs natifs du jeu de base.
  * À appeler au début de chaque combat (initCombat dans combat.js).
  *
@@ -262,7 +319,9 @@ function immunityInterceptor(action, combatState) {
  */
 export function initInterceptors() {
   clearInterceptors();
-  registerInterceptor('move_power',   anchorInterceptor);
-  registerInterceptor('swap_powers',  anchorInterceptor);
-  registerInterceptor('apply_status', immunityInterceptor);
+  registerInterceptor('move_power',    anchorInterceptor);
+  registerInterceptor('swap_powers',   anchorInterceptor);
+  registerInterceptor('swap_powers',   sourcePowerInterceptor);
+  registerInterceptor('swap_powers',   distanceInterceptor);
+  registerInterceptor('apply_status',  immunityInterceptor);
 }

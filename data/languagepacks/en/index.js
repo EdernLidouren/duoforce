@@ -321,6 +321,9 @@ export default {
     blocked: {
       anchored: 'This power is anchored and cannot be moved.',
       immune: 'This power is immune and cannot receive this status.',
+      no_source_power: 'There is no power in this area.',
+      out_of_range: 'This area is out of range.',
+      no_maneuver: 'You have no maneuvers left.',
     },
   },
 

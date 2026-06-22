@@ -64,6 +64,21 @@ const DIRECTIONS = {
 // --- Helpers de géométrie ---------------------------------------------------
 
 /**
+ * Distance de Manhattan entre deux positions du plateau (0–8).
+ * Retourne Infinity si l'une des positions est hors plateau.
+ * Utilisée par le pipeline d'actions pour valider la portée d'un échange.
+ * @param {number} posA
+ * @param {number} posB
+ * @returns {number}
+ */
+export function manhattanDistance(posA, posB) {
+  const a = COORD[posA];
+  const b = COORD[posB];
+  if (!a || !b) return Infinity;
+  return Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
+}
+
+/**
  * Index du voisin d'une case dans une direction, ou null si hors plateau.
  * @param {number} pos
  * @param {keyof DIRECTIONS} direction

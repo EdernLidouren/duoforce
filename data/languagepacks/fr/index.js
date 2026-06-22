@@ -330,6 +330,9 @@ export default {
     blocked: {
       anchored: 'Ce pouvoir est ancré et ne peut pas être déplacé.',
       immune: 'Ce pouvoir est immunisé et ne peut pas recevoir ce statut.',
+      no_source_power: 'Il n'y a pas de pouvoir dans cette zone.',
+      out_of_range: 'Cette zone est hors de portée.',
+      no_maneuver: 'Vous n'avez plus de manœuvres.',
     },
   },
 

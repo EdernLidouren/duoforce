@@ -46,8 +46,9 @@ const action = createAction('apply_status', {
 | `deal_damage`   | `'duo'` ou `'enemy'` | `number` | `data.unblockable?` (ignoré par le moteur actuel, utile aux intercepteurs) |
 | `add_attack`    | `'duo'` ou `'enemy'` | `number` | Hors résolution uniquement |
 | `add_defense`   | `'duo'` ou `'enemy'` | `number` | Hors résolution uniquement |
-| `move_power`    | `number` (position dest.) | — | `source`: position source |
-| `swap_powers`   | `number` (position dest.) | — | `source`: position source |
+| `swap_powers`   | `number` (position dest.) | — | `source`: position source ; `data.maxDistance?`: portée |
+| `spend_maneuver` | `'duo'`\|`'enemy'`       | `number` | Décrémente la manœuvre |
+| `move_power`    | `number` (position dest.) | — | `source`: position source (exécuteur à venir) |
 
 Pour `target.type` des actions de statut :
 
@@ -73,6 +74,78 @@ Le pipeline d'actions concerne les **effets discrets** qui surviennent en dehors
 de la passe de résolution : application de statuts, dégâts de poison, bonus de
 perk en fin de tour, déplacements. Ce sont ces effets qu'un intercepteur (un
 gadget, un perk adverse) pourrait légitimement vouloir bloquer ou modifier.
+
+---
+
+## Action `swap_powers` et mécanique de manœuvre
+
+### Règles de `swap_powers`
+
+```js
+createAction('swap_powers', {
+  source: fromPos,   // position source (doit contenir un pouvoir)
+  target: toPos,     // position cible (peut être vide)
+  data: { maxDistance: 1 },  // portée orthogonale maximale
+})
+```
+
+**Interversion vs déplacement vers case vide :**
+- Si la zone cible contient un pouvoir → les deux pouvoirs échangent leurs zones.
+- Si la zone cible est vide → le pouvoir source se déplace, laissant sa zone vide.
+
+**Statuts de zone ≠ statuts de pouvoir :**
+- Les statuts de zone (`area_freeze_status`, `area_anchor_status`…) restent attachés à leur zone physique — ils ne bougent pas avec le pouvoir.
+- Les statuts d'entité (`power_exhaustion_status`…) sont stockés dans `combatState.statuses.entities` indexés par référence d'objet pouvoir. Ils voyagent automatiquement avec le pouvoir lors d'un échange.
+
+**Blocage par ancrage :** `anchorInterceptor` annule tout `swap_powers` dont la zone **source ou cible** (l'une suffit) porte `area_anchor_status`.
+
+**Distance orthogonale :** `data.maxDistance` limite la portée en distance de Manhattan. Pour une manœuvre standard : `maxDistance: 1` (adjacents orthogonaux uniquement — jamais de diagonale). Sans `maxDistance`, aucune limite.
+
+**Préconditions interceptées :**
+- Zone source vide → `action.blocked.no_source_power`
+- Cible hors portée → `action.blocked.out_of_range`
+- Zone ancrée (source ou cible) → `action.blocked.anchored`
+
+### Manœuvre — cas particulier (`src/engine/maneuver.js`)
+
+La manœuvre est un `swap_powers` à distance 1 qui coûte 1 point de manœuvre.
+
+```
+┌─────────────────────────────────────────────────┐
+│ 1. canStartManeuver(combatState)                │  → au moins 1 manœuvre ?
+│ 2. canManeuverFrom(combatState, sourcePos)      │  → source légale ?
+│ 3. canManeuverTo(combatState, sourcePos, tgtPos)│  → cible légale ? (read-only)
+│ 4. executeManeuver(combatState, sourcePos, tgt) │  → échange + dépense
+└─────────────────────────────────────────────────┘
+```
+
+**Dépense après succès uniquement** : si l'échange est annulé (ancrage, portée, interdiction externe), aucun point de manœuvre n'est consommé.
+
+```js
+import { executeManeuver, canManeuverFrom, canManeuverTo } from '../../engine/maneuver.js';
+
+// Vérification avant proposition à l'UI :
+if (canManeuverFrom(combatState, sourcePos)) {
+  for (const pos of reachablePositions(sourcePos, 1)) {
+    if (canManeuverTo(combatState, sourcePos, pos)) { /* proposer cette case */ }
+  }
+}
+
+// Exécution :
+const result = executeManeuver(combatState, sourcePos, targetPos);
+if (!result.success) announce(strings[result.reason]);
+```
+
+`canManeuverTo` passe par `validateAction` — il reflète tout le pipeline
+d'intercepteurs, y compris les futurs intercepteurs de perk ou de gadget.
+
+`spend_maneuver` (dépense du point) transite par `executeAction` : un futur
+intercepteur pourrait le bloquer (ex. pouvoir qui donne une manœuvre gratuite)
+ou le réduire.
+
+`reachablePositions(fromPos, maxDistance)` retourne les positions dans la portée
+orthogonale, quel que soit leur contenu. La validation des contraintes de jeu
+reste la responsabilité de `canManeuverTo` / `validateAction`.
 
 ---
 
@@ -234,3 +307,6 @@ executeAction(combatState, createAction('deal_damage', {
 |---|---|
 | `action.blocked.anchored` | Zone source ou cible porte `area_anchor_status` |
 | `action.blocked.immune` | Cible porte un drapeau d'immunité contre ce statut |
+| `action.blocked.no_source_power` | Zone source vide — `swap_powers` impossible |
+| `action.blocked.out_of_range` | Zone cible hors de la portée `data.maxDistance` |
+| `action.blocked.no_maneuver` | Aucun point de manœuvre disponible |
