@@ -124,13 +124,10 @@ export function applyStatus(combatState, instance) {
   const def = getStatusDefById(id);
   const key = targetKey(instance);
 
-  // Immunité : un drapeau peut bloquer ce statut, soit sur l'entité visée, soit
-  // sur le pouvoir occupant la zone visée (ex. iron_will protège lui-même ET sa
-  // case contre les statuts négatifs).
-  if (def?.immunityFlag) {
-    if (target === 'entity' && key?.[def.immunityFlag]) return;
-    if (target === 'area' && combatState.board?.[key]?.power?.[def.immunityFlag]) return;
-  }
+  // L'immunité était vérifiée ici. Elle est désormais gérée par l'intercepteur
+  // immunityInterceptor dans actions.js, déclenché lors d'une action 'apply_status'.
+  // Les appels directs à applyStatus (commit des statuts de zone dans resolveTurn)
+  // arrivent après que l'intercepteur a déjà validé l'application.
 
   const list = getList(combatState, target, key);
   if (!list) return;
@@ -170,6 +167,24 @@ function makeInstance(id, stacks, target, source) {
   if (target === 'entity') inst.entity = source.entity;
   else if (target === 'area') inst.position = source.position;
   return inst;
+}
+
+/**
+ * Modifie les stacks d'un statut existant (delta positif ou négatif).
+ * Sans effet si le statut est absent de la cible.
+ * Appelé par l'exécuteur de l'action 'modify_status' dans actions.js.
+ * @param {object} combatState
+ * @param {'duo'|'enemy'|'entity'|'area'} targetType
+ * @param {string} statusId
+ * @param {number} delta
+ * @param {object} [entity]   requis si targetType === 'entity'
+ * @param {number} [position] requis si targetType === 'area'
+ */
+export function modifyStatusStacks(combatState, targetType, statusId, delta, entity, position) {
+  const key = targetType === 'entity' ? entity : targetType === 'area' ? position : undefined;
+  const list = getList(combatState, targetType, key);
+  const inst = list?.find((st) => st.id === statusId);
+  if (inst) inst.stacks += delta;
 }
 
 /** Retire un status d'une cible duo/enemy. */

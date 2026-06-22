@@ -17,6 +17,14 @@ export const BOARD_SIZE = 9;
  */
 export const MAX_RESOLUTION_STEPS = 1000;
 
+/**
+ * Profondeur maximale d'appels imbriqués à executeAction (garde-fou anti-cascade).
+ * En jeu normal la profondeur est 1 (un appelant, un executeAction). Cette limite
+ * ne se déclenche qu'en cas de bug (intercepteur qui déclenche une nouvelle action
+ * qui déclenche un intercepteur, etc.).
+ */
+export const MAX_ACTION_DEPTH = 50;
+
 /** Nombre de pouvoirs distribués sur le plateau au début de chaque tour. */
 export const HAND_SIZE = 9;
 

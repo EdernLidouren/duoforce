@@ -317,6 +317,13 @@ export default {
     backToMenu: 'Back to menu',
   },
 
+  action: {
+    blocked: {
+      anchored: 'This power is anchored and cannot be moved.',
+      immune: 'This power is immune and cannot receive this status.',
+    },
+  },
+
   a11y: {
     invalidMove: 'Invalid move.',
   },

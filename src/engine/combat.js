@@ -20,6 +20,7 @@ import { resolveBoard, RESOLUTION_ORDER } from './rules.js';
 import { processTurnEnd, applyStatus } from './statuses.js';
 import { createEventStore, clearTurnLog, clearCombatLog } from './events.js';
 import { processPerksTurnEnd } from './perks.js';
+import { initInterceptors } from './actions.js';
 import { getPowerById } from '../data/powers/index.js';
 import { getPerkById } from '../data/perks/index.js';
 import { HEROES } from '../data/heroes/index.js';
@@ -235,6 +236,8 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
 
   // Combat neuf : journal de combat vierge (la progression n'est pas touchée).
   clearCombatLog(state);
+  // Pipeline d'actions : réinitialise les intercepteurs pour ce combat.
+  initInterceptors();
   return state;
 }
 

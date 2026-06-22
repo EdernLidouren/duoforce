@@ -326,6 +326,13 @@ export default {
     backToMenu: 'Retour au menu',
   },
 
+  action: {
+    blocked: {
+      anchored: 'Ce pouvoir est ancré et ne peut pas être déplacé.',
+      immune: 'Ce pouvoir est immunisé et ne peut pas recevoir ce statut.',
+    },
+  },
+
   a11y: {
     // Messages destinés aux régions live (à compléter).
     invalidMove: 'Coup invalide.',

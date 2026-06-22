@@ -26,6 +26,7 @@
 
 import { countEvents as countEventsInState, emitEvent as emitEventInState } from './events.js';
 import { hasAreaStatus } from './statuses.js';
+import { executeAction, createAction } from './actions.js';
 
 // --- Lecture du plateau -----------------------------------------------------
 
@@ -214,7 +215,10 @@ export function areaHasStatus(ctx, position, statusId) {
  * @param {number} [stacks]
  */
 export function applyAreaStatus(ctx, position, statusId, stacks = 1) {
-  (ctx.combatState._pendingAreaStatuses ??= []).push({ position, statusId, stacks });
+  executeAction(ctx.combatState, createAction('apply_status', {
+    target: { type: 'area', position },
+    value: { statusId, stacks },
+  }));
 }
 
 export function grantManeuver(ctx, n) {
