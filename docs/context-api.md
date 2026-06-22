@@ -68,6 +68,7 @@ Disposition du plateau (index) :
 | `countNeighborsOfType` | `(ctx, type)` | `ctx.neighbors` | nombre de voisins de ce `type` |
 | `areaHasStatus` | `(ctx, position, statusId)` | `ctx.combatState` (zones) | `true` si la zone à `position` porte ce statut |
 | `countEvents` | `(ctx, type, scope)` | `ctx.combatState.events` | nombre d'events d'un `type` dans un scope (voir [Events](#events-bus-devents--srcengineeventsjs)) |
+| `emitEvent` | `(ctx, type, data?)` | — | émet un event depuis un `customResolve` (voir [Events](#events-bus-devents--srcengineeventsjs)) |
 
 Pour lire une valeur de combat (rare), on accède directement à
 `ctx.combatState.duo` / `ctx.combatState.enemy` — ex. `impregnable` teste
@@ -206,26 +207,54 @@ Chaque émission alimente **les trois journaux** simultanément
 | `'combat'` | events du combat courant | à l'initialisation d'un combat (`clearCombatLog`, dans `initCombat`) |
 | `'progression'` | events au-delà des combats et des parties | jamais automatiquement (persiste en mémoire ; prêt à être sérialisé) |
 
-> L'émission a lieu pendant la **résolution réelle** (`resolveTurn`), pas pendant
-> l'estimation (l'estimateur appelle `resolveBoard` sans émettre, pour ne pas
-> polluer les journaux). Un `customResolve` qui lit le scope `'turn'` voit donc
-> les events émis **plus tôt dans la même résolution** (ex. les pouvoirs déjà
-> bloqués, l'ordre étant 6,7,8,3,4,5,0,1,2).
+### Timing d'émission et de lecture
 
-### `countEvents(ctx, type, scope)`
+`resolveBoard` travaille sur une copie `work` de `combatState` (via spread
+superficiel). **`work.events` est la même référence que `combatState.events`** :
+les mutations de `work.events.turn` écrivent directement dans le tableau réel.
 
-Compte les events d'un `type` dans un `scope` (délègue à `events.js` via
-`ctx.combatState`). C'est le helper destiné aux `customResolve`.
+Conséquences précises par scope :
+
+| Scope | Lisible dès… | Encore lisible dans… |
+|---|---|---|
+| `'turn'` | la case suivante dans la même passe de résolution | `onTurnEnd` des statuts et perks (appelés après `resolveBoard`, avant `startTurn` du tour suivant) |
+| `'combat'` | idem (même référence) | tous les hooks du combat courant |
+| `'progression'` | idem (tableau de module global) | indéfiniment |
+
+L'émission a lieu pendant la **résolution réelle** (`emit: true`), pas pendant
+l'estimation (l'estimateur appelle `resolveBoard` avec `emit: false`, pour ne
+pas polluer les journaux).
+
+Un `customResolve` qui lit le scope `'turn'` voit donc les events émis
+**plus tôt dans la même résolution** : l'ordre 6→7→8→3→4→5→0→1→2 garantit
+qu'un pouvoir voit tous les events des pouvoirs résolus avant lui ce tour.
+
+### `countEvents` et `emitEvent` depuis un `customResolve`
 
 ```js
-import { countEvents } from '../../engine/context.js';
+import { countEvents, emitEvent, addAttack } from '../../engine/context.js';
 
-// blue_comet_mark_perk : pour chaque tranche de 3 pouvoirs bloqués par une zone
-// ce tour, +1 attaque (appliqué en fin de résolution).
+// Lire combien de pouvoirs ont été bloqués par zone avant cette case ce tour :
 customResolve: (ctx) => {
   const blocked = countEvents(ctx, 'power_blocked_by_area', 'turn');
-  const bonus = Math.floor(blocked / 3);
-  if (bonus > 0) addAttack(ctx, bonus);
+  if (blocked > 0) addAttack(ctx, blocked);
+}
+
+// Émettre un event personnalisé depuis un customResolve :
+customResolve: (ctx) => {
+  addAttack(ctx, 2);
+  emitEvent(ctx, 'my_power_activated', { position: ctx.position });
+}
+```
+
+Pour émettre depuis un `onTurnEnd` de statut ou de perk (qui reçoit
+`combatState` directement, pas de `ctx`) :
+
+```js
+import { emitEvent } from '../../engine/events.js';
+
+onTurnEnd: (combatState) => {
+  emitEvent(combatState, 'my_event', { turn: combatState.turn });
 }
 ```
 
@@ -235,6 +264,27 @@ Events de blocage émis par `resolveBoard` (chacun avec `data: { position, power
 |---|---|
 | `power_blocked_by_exhaustion` | le pouvoir porte `power_exhaustion_status` |
 | `power_blocked_by_area` | la zone porte un statut bloquant (ex. `area_freeze_status`) |
+
+---
+
+## Garde-fou anti-boucle (`MAX_RESOLUTION_STEPS`)
+
+`resolveBoard` incrémente un compteur à chaque itération de sa boucle
+principale. Si ce compteur dépasse `MAX_RESOLUTION_STEPS` (exporté depuis
+`gameState.js`, valeur de départ : 1000), la boucle est interrompue et un
+avertissement est loggé en console :
+
+```
+[resolveBoard] MAX_RESOLUTION_STEPS (1000) dépassé au tour N — résolution interrompue.
+```
+
+Le jeu continue sans crash : les effets déjà calculés sont commis normalement.
+
+**Ce garde-fou est un filet de sécurité contre les bugs, pas un mécanisme de
+gameplay.** En jeu normal, la boucle parcourt au plus 9 cases et ne se déclenche
+jamais. Il protège contre les chaînes réactives non bornées qui pourraient
+apparaître avec de futures mécaniques (triggers qui s'enchaînent, re-entrée
+accidentelle dans la résolution, etc.).
 
 ---
 

@@ -251,7 +251,7 @@ export function createCombatScene() {
       { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => duoNav.reset(), onKey: (e) => duoNav.onKey(e) },
       { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
-      { id: 'history', element: historyZoneEl, label: L.history, onEnter: () => describeHistory(), onKey: (e) => historyNav.onKey(e) },
+      { id: 'history', element: historyZoneEl, label: L.history, noAria: true, onEnter: () => describeHistory(), onKey: (e) => historyNav.onKey(e) },
     ];
 
     controller = createZoneController({
@@ -324,17 +324,23 @@ export function createCombatScene() {
 
   // --- Zone d'historique (messages) -----------------------------------------
 
-  /**
-   * Ajoute un message : l'annonce (région journal role="log", lue un par un) ET
-   * l'ajoute à l'historique visible, plafonné à HISTORY_LIMIT (le plus ancien est
-   * retiré au-delà).
-   */
-  function pushMessage(message) {
-    context.announce.enqueue(message); // région journal : mise en file par le lecteur
+  /** Ajoute un message au <ul> visible de l'historique sans l'annoncer. */
+  function addToHistory(message) {
     refs.history.append(el('li', { textContent: message }));
     while (refs.history.children.length > HISTORY_LIMIT) {
       refs.history.removeChild(refs.history.firstChild);
     }
+  }
+
+  /** Envoie un message au lecteur d'écran sans l'ajouter à l'historique. */
+  function announceMessage(message) {
+    context.announce.enqueue(message);
+  }
+
+  /** Annonce un message au lecteur d'écran ET l'ajoute à l'historique visible. */
+  function pushMessage(message) {
+    announceMessage(message);
+    addToHistory(message);
   }
 
   /**
@@ -526,6 +532,7 @@ export function createCombatScene() {
   function endTurn() {
     if (isOver(state)) return;
 
+    context.announce.clearLog();
     const report = resolveTurn(state);
 
     // 1) Messages des pouvoirs activés, dans l'ordre de résolution.

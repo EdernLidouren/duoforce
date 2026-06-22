@@ -25,6 +25,7 @@ import {
 } from './statuses.js';
 import { emitEvent } from './events.js';
 import { applyPerkModifiers, evaluatePerkTriggers, evaluatePerkBlockTriggers } from './perks.js';
+import { MAX_RESOLUTION_STEPS } from './gameState.js';
 
 /** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
 const EXHAUSTION_ID = 'power_exhaustion_status';
@@ -237,7 +238,16 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
 
   const activationByPos = {};
   const perkActivations = [];
+  let steps = 0;
   for (const pos of RESOLUTION_ORDER) {
+    if (++steps > MAX_RESOLUTION_STEPS) {
+      console.warn(
+        `[resolveBoard] MAX_RESOLUTION_STEPS (${MAX_RESOLUTION_STEPS}) dépassé` +
+        ` au tour ${combatState.turn ?? 0} — résolution interrompue.`,
+      );
+      break;
+    }
+
     const area = board[pos];
     const power = area?.power;
     if (!power) continue;

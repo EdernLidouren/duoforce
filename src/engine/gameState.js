@@ -10,6 +10,13 @@
 /** Nombre de cases du plateau (grille 3×3). */
 export const BOARD_SIZE = 9;
 
+/**
+ * Nombre maximal d'itérations de résolution par tour (filet anti-boucle infinie).
+ * En jeu normal la boucle principale parcourt 9 cases ; cette limite ne se
+ * déclenche qu'en cas de bug (chaîne réactive non bornée, re-entrée accidentelle).
+ */
+export const MAX_RESOLUTION_STEPS = 1000;
+
 /** Nombre de pouvoirs distribués sur le plateau au début de chaque tour. */
 export const HAND_SIZE = 9;
 

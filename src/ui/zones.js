@@ -27,6 +27,7 @@
 //     element : HTMLElement,            // conteneur focusable de la zone
 //     label   : string,                 // nom annoncé en entrant dans la zone
 //     role?   : string,                 // rôle ARIA de l'élément (défaut "group")
+//     noAria? : boolean,                // si true, aucun role ni aria-label posé sur l'élément
 //     focus?  : () => void,             // déplace le focus (défaut: element.focus())
 //     onEnter?: () => (string|null),    // résumé du contenu annoncé à l'entrée
 //     onKey?  : (event) => boolean,     // gère une touche ; true si consommée
@@ -131,8 +132,10 @@ export function createZoneController({ container, announce, label, zones, defaul
 
     zones.forEach((zone) => {
       zone.element.tabIndex = -1;
-      zone.element.setAttribute('role', zone.role ?? 'group');
-      if (zone.label) zone.element.setAttribute('aria-label', zone.label);
+      if (!zone.noAria) {
+        zone.element.setAttribute('role', zone.role ?? 'group');
+        if (zone.label) zone.element.setAttribute('aria-label', zone.label);
+      }
     });
 
     keydownHandler = handleKeydown;

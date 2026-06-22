@@ -25,7 +25,7 @@ const LOG_MAX_NODES = 30;
 /**
  * Crée un annonceur lié aux régions live.
  * @param {{ alert: HTMLElement }} [regions]  region assertive (#aria-alert).
- * @returns {{ polite: Function, enqueue: Function, assertive: Function }}
+ * @returns {{ polite: Function, enqueue: Function, assertive: Function, clearLog: Function }}
  */
 export function createAnnouncer(regions = {}) {
   let activeRegion = 'a'; // région polite courante : 'a' ou 'b'
@@ -68,5 +68,11 @@ export function createAnnouncer(regions = {}) {
     }, 50);
   }
 
-  return { polite, enqueue, assertive };
+  /** Vide la région journal (#live-log) sans déclencher d'annonce. */
+  function clearLog() {
+    const log = document.getElementById('live-log');
+    if (log) log.replaceChildren();
+  }
+
+  return { polite, enqueue, assertive, clearLog };
 }

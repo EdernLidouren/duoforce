@@ -354,8 +354,7 @@ export function resolveTurn(state) {
   }
 
   // Fin de tour : statuts (poison, décréments de durée, expirations...) puis
-  // signatures (perks). Le journal du tour est encore peuplé, donc les perks qui
-  // consultent les events (ex. blue_comet_mark) voient bien ce tour.
+  // signatures (perks onTurnEnd).
   processTurnEnd(state);
   processPerksTurnEnd(state);
 

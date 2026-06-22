@@ -6,18 +6,22 @@
 // plusieurs. Structure d'une définition (src/data/perks/) :
 //   {
 //     id: string,
-//     onTurnEnd?: (combatState, ctx, owner) => void, // fin de tour
-//     modifiers?: [],                                 // appliqués chaque tour (avant résolution)
-//     triggers?:  [],                                 // évalués après chaque pouvoir
+//     onTurnEnd?:           (combatState, ctx, owner) => void,
+//     onPowerBlockedByArea?: (combatState, area, owner) => activation|null,
+//     modifiers?: [],   // appliqués chaque tour (avant résolution)
+//     triggers?:  [],   // évalués après chaque pouvoir résolu
+//     descriptionData?:  (combatState) => object, // valeurs dynamiques pour la description
 //   }
 //
 // Stockage : combatState.duo.perks / combatState.enemy.perks (tableaux de
 // définitions ; stateless, donc partagées sans copie).
+// État par-combat (ex. compteurs) : combatState.perkCounters[perkId].
 //
 // Points d'intégration (parallèles à ceux des statuts) :
-//   - applyPerkModifiers   ↔ applyModifiers   (resolveBoard, avant la boucle)
-//   - evaluatePerkTriggers ↔ evaluateTriggers (resolveBoard, après chaque pouvoir)
-//   - processPerksTurnEnd  ↔ processTurnEnd   (resolveTurn, fin de tour)
+//   - applyPerkModifiers        ↔ applyModifiers   (resolveBoard, avant la boucle)
+//   - evaluatePerkTriggers      ↔ evaluateTriggers (resolveBoard, après chaque pouvoir)
+//   - evaluatePerkBlockTriggers                    (resolveBoard, quand un pouvoir est bloqué par zone)
+//   - processPerksTurnEnd       ↔ processTurnEnd   (resolveTurn, fin de tour)
 //
 // Aucun DOM.
 
@@ -93,8 +97,7 @@ export function evaluatePerkBlockTriggers(combatState, area) {
 
 /**
  * Appelle onTurnEnd de chaque signature (à appeler en fin de tour — même moment
- * que processTurnEnd des statuts). Fournit un ctx minimal { combatState } afin que
- * les onTurnEnd puissent consulter les events via context.js (countEvents).
+ * que processTurnEnd des statuts).
  * @param {object} combatState
  */
 export function processPerksTurnEnd(combatState) {

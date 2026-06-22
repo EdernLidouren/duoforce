@@ -24,7 +24,7 @@
 //
 // Aucun DOM.
 
-import { countEvents as countEventsInState } from './events.js';
+import { countEvents as countEventsInState, emitEvent as emitEventInState } from './events.js';
 import { hasAreaStatus } from './statuses.js';
 
 // --- Lecture du plateau -----------------------------------------------------
@@ -86,6 +86,17 @@ export function countNeighborsOfType(ctx, type) {
  */
 export function countEvents(ctx, type, scope) {
   return countEventsInState(ctx.combatState, type, scope);
+}
+
+/**
+ * Émet un event depuis un customResolve (délègue à events.js via ctx.combatState).
+ * @param {object} ctx
+ * @param {string} type
+ * @param {object} [data]
+ * @returns {{type:string, turn:number, data:object}}
+ */
+export function emitEvent(ctx, type, data = {}) {
+  return emitEventInState(ctx.combatState, type, data);
 }
 
 // --- Écriture du combat (mutations de ctx.combatState) ----------------------
