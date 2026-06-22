@@ -24,7 +24,7 @@ import {
   hasAreaStatus,
 } from './statuses.js';
 import { emitEvent } from './events.js';
-import { applyPerkModifiers, evaluatePerkTriggers } from './perks.js';
+import { applyPerkModifiers, evaluatePerkTriggers, evaluatePerkBlockTriggers } from './perks.js';
 
 /** Id du status qui rend un pouvoir inactif (cf. data/statuses). */
 const EXHAUSTION_ID = 'power_exhaustion_status';
@@ -236,6 +236,7 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
   applyPerkModifiers(work);
 
   const activationByPos = {};
+  const perkActivations = [];
   for (const pos of RESOLUTION_ORDER) {
     const area = board[pos];
     const power = area?.power;
@@ -243,8 +244,11 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
 
     // Le pouvoir résout, puis la zone : si l'un ou l'autre bloque, customResolve
     // n'est pas exécuté (aucun effet). C'est ici (et seulement ici) qu'on émet
-    // l'event de blocage.
-    if (isResolutionBlocked(work, area, power, emit)) continue;
+    // l'event de blocage et qu'on évalue les hooks onPowerBlockedByArea.
+    if (isResolutionBlocked(work, area, power, emit)) {
+      if (emit) perkActivations.push(...evaluatePerkBlockTriggers(work, area));
+      continue;
+    }
 
     const ctx = buildContext(pos, board, work);
     ctx.effects = []; // journal des effets de ce pouvoir (pour les messages)
@@ -299,6 +303,7 @@ export function resolveBoard(boardState, combatState, { emit = false } = {}) {
       hp: work.enemy.hp,
     },
     activations,
+    perkActivations,
     // Statuts de zone à committer sur l'état réel (par resolveTurn). L'estimateur
     // ignore ce champ : aucune persistance lors d'une simple estimation.
     areaStatuses: work._pendingAreaStatuses ?? [],

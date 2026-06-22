@@ -136,6 +136,21 @@ export function powerActivationMessages(activation, strings) {
 }
 
 /**
+ * Message d'activation d'une signature (perk) : "{nom} s'active : {effets}.".
+ * Fallback générique utilisable par tout objet à effet.
+ * @param {{perkId:string, effects:Array}} activation
+ * @param {object} strings
+ * @returns {string}
+ */
+export function perkActivationMessage(activation, strings) {
+  const log = strings?.log ?? {};
+  const name = strings?.perks?.[activation.perkId]?.name ?? activation.perkId;
+  const items = (activation.effects ?? []).map((e) => valueItem(e, strings)).filter(Boolean);
+  const effects = items.length > 0 ? joinList(items.map((i) => i.text), strings) : '';
+  return format(log.perkActivation ?? '{name} activates: {effects}.', { name, effects });
+}
+
+/**
  * Tous les messages de pouvoirs d'un tour, dans l'ordre de résolution.
  * @param {Array} activations  resolveBoard(...).activations (ou report.activations)
  * @param {object} strings

@@ -156,6 +156,7 @@ export default {
     enemyDefeated: '{enemy} est vaincu.',
     duoHit: 'Votre duo subit {damage}.',
     turnStart: 'Début du tour {turn}.',
+    perkActivation: "{name} s'active : {effects}.",
     listSeparator: ', ',
     listLast: ' et ',
     directions: {
@@ -303,7 +304,7 @@ export default {
     },
     blue_comet_mark_perk: {
       name: 'marque de la comète bleue',
-      description: 'À la fin du tour, +1 attaque pour tous les 3 pouvoirs annulés par un statut de zone.',
+      description: 'Tous les {counter} sur 2 pouvoirs annulés par un statut de zone, +1 attaque.',
     },
   },
 

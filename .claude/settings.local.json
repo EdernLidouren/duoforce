@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri 'http://localhost:8000/src/data/powers.js' -UseBasicParsing -TimeoutSec 5; \"STATUS: $\\($r.StatusCode\\)\"; \"Cache-Control: $\\($r.Headers['Cache-Control']\\)\"; \"len: $\\($r.Content.Length\\)\" } catch { \"ERROR: $\\($_.Exception.Message\\)\" })"
+    ]
+  }
+}

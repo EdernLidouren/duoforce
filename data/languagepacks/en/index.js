@@ -151,6 +151,7 @@ export default {
     enemyDefeated: '{enemy} is defeated.',
     duoHit: 'Your duo takes {damage} damage.',
     turnStart: 'Start of turn {turn}.',
+    perkActivation: '{name} activates: {effects}.',
     listSeparator: ', ',
     listLast: ' and ',
     directions: {
@@ -295,7 +296,7 @@ export default {
     },
     blue_comet_mark_perk: {
       name: 'blue comet mark',
-      description: 'At the end of the turn, +1 attack for every 3 powers cancelled by an area status.',
+      description: 'For every 2 of {counter} powers cancelled by an area status, +1 attack.',
     },
   },
 

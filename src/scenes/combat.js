@@ -40,7 +40,7 @@ import { longDescription, powerName } from '../ui/powerText.js';
 import { perkLongDescription } from '../ui/perkText.js';
 import { statusListShort } from '../ui/statusText.js';
 import { createListNavigator } from '../ui/listNavigation.js';
-import { turnMessages, resolutionMessages, turnStartMessage } from '../ui/combatMessages.js';
+import { turnMessages, resolutionMessages, turnStartMessage, perkActivationMessage } from '../ui/combatMessages.js';
 
 /** Disposition visuelle du plateau : lignes ciel / surface / terre. */
 const BOARD_ROWS = [
@@ -473,7 +473,7 @@ export function createCombatScene() {
       return;
     }
     for (const perk of perks) {
-      container.append(el('p', { textContent: perkLongDescription(perk, context.strings) }));
+      container.append(el('p', { textContent: perkLongDescription(perk, context.strings, perk.descriptionData?.(state) ?? {}) }));
     }
   }
 
@@ -531,6 +531,10 @@ export function createCombatScene() {
     // 1) Messages des pouvoirs activés, dans l'ordre de résolution.
     for (const message of turnMessages(report.activations, context.strings)) {
       pushMessage(message);
+    }
+    // 1b) Activations de signatures (perks) déclenchées pendant la résolution.
+    for (const act of report.perkActivations ?? []) {
+      pushMessage(perkActivationMessage(act, context.strings));
     }
     // 2) Messages de résolution (dégâts, défaite éventuelle puis arrêt).
     for (const message of resolutionMessages(report, enemyName(), context.strings)) {

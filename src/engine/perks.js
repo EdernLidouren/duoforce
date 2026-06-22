@@ -70,6 +70,28 @@ export function evaluatePerkTriggers(combatState, ctx) {
 }
 
 /**
+ * Évalue les hooks onPowerBlockedByArea de toutes les signatures (à appeler
+ * uniquement lors de la résolution réelle, quand un power_blocked_by_area est émis).
+ * Retourne les activations de perk (objets { perkId, effects }) à inclure dans le rapport.
+ * @param {object} combatState  copie de travail (perkCounters partagé par référence)
+ * @param {object} area         zone dont le pouvoir vient d'être bloqué
+ * @returns {Array}
+ */
+export function evaluatePerkBlockTriggers(combatState, area) {
+  const activations = [];
+  for (const [owner, perks] of ownerPerks(combatState)) {
+    if (!Array.isArray(perks)) continue;
+    for (const perk of perks) {
+      if (typeof perk.onPowerBlockedByArea === 'function') {
+        const act = perk.onPowerBlockedByArea(combatState, area, owner);
+        if (act) activations.push(act);
+      }
+    }
+  }
+  return activations;
+}
+
+/**
  * Appelle onTurnEnd de chaque signature (à appeler en fin de tour — même moment
  * que processTurnEnd des statuts). Fournit un ctx minimal { combatState } afin que
  * les onTurnEnd puissent consulter les events via context.js (countEvents).

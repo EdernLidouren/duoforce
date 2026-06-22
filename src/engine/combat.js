@@ -375,6 +375,7 @@ export function resolveTurn(state) {
 
   return {
     activations: r.activations,
+    perkActivations: r.perkActivations,
     damageToEnemy,
     damageToDuo,
     status: state.status,
