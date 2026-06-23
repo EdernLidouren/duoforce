@@ -327,6 +327,23 @@ export default {
     },
   },
 
+  maneuver: {
+    no_points:     'You have no maneuvers left.',
+    selectTarget:  'Choose a zone to swap with {name}. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+    swapForbidden: 'Swap forbidden',
+    swapDone:      'Swap done.',
+    cancelled:     'Maneuver cancelled.',
+  },
+
+  zoneSelector: {
+    outOfRange:    'Out of range',
+    forbidden:     'Forbidden',
+    confirmed:     'Zone confirmed',
+    cancelled:     'Selection cancelled.',
+    testOpen:      'Zone selection test. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+    testForbidden: 'Central zone forbidden',
+  },
+
   a11y: {
     invalidMove: 'Invalid move.',
   },

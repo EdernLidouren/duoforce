@@ -110,6 +110,8 @@ createAction('swap_powers', {
 
 La manœuvre est un `swap_powers` à distance 1 qui coûte 1 point de manœuvre.
 
+**Flux moteur pur :**
+
 ```
 ┌─────────────────────────────────────────────────┐
 │ 1. canStartManeuver(combatState)                │  → au moins 1 manœuvre ?
@@ -118,6 +120,23 @@ La manœuvre est un `swap_powers` à distance 1 qui coûte 1 point de manœuvre.
 │ 4. executeManeuver(combatState, sourcePos, tgt) │  → échange + dépense
 └─────────────────────────────────────────────────┘
 ```
+
+**Flux UI (`src/scenes/combat.js`) :**
+
+```
+Entrée sur une case occupée
+  → canStartManeuver ? sinon → announce maneuver.no_points
+  → openManeuverSelector(sourcePos)
+      getZoneState via validateAction (lecture seule)
+      Entrée sur cible → executeManeuver
+                          swap_powers (executeAction)
+                          spend_maneuver si succès uniquement
+      Échap → announce maneuver.cancelled
+```
+
+La **source est pré-déterminée** par la case sur laquelle le joueur presse Entrée. Le sélecteur de zone ne couvre que la sélection de la **cible**. La dépense du point de manœuvre n'a lieu qu'après application réussie de l'échange — si le pipeline annule l'action entre la pré-validation et l'exécution (edge case), aucun point n'est consommé.
+
+Voir `docs/ui-zone-selection.md` pour le détail du câblage UI.
 
 **Dépense après succès uniquement** : si l'échange est annulé (ancrage, portée, interdiction externe), aucun point de manœuvre n'est consommé.
 

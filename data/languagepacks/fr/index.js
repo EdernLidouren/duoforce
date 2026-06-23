@@ -330,10 +330,27 @@ export default {
     blocked: {
       anchored: 'Ce pouvoir est ancré et ne peut pas être déplacé.',
       immune: 'Ce pouvoir est immunisé et ne peut pas recevoir ce statut.',
-      no_source_power: 'Il n'y a pas de pouvoir dans cette zone.',
+      no_source_power: "Il n'y a pas de pouvoir dans cette zone.",
       out_of_range: 'Cette zone est hors de portée.',
-      no_maneuver: 'Vous n'avez plus de manœuvres.',
+      no_maneuver: "Vous n'avez plus de manœuvres.",
     },
+  },
+
+  maneuver: {
+    no_points:     "Vous n'avez plus de manœuvres.",
+    selectTarget:  'Choisir une zone pour échanger {name}. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+    swapForbidden: 'Échange interdit',
+    swapDone:      'Échange effectué.',
+    cancelled:     'Manœuvre annulée.',
+  },
+
+  zoneSelector: {
+    outOfRange:    'Hors de portée',
+    forbidden:     'Interdit',
+    confirmed:     'Zone confirmée',
+    cancelled:     'Sélection annulée.',
+    testOpen:      'Sélection de zone de test. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+    testForbidden: 'Zone centrale interdite',
   },
 
   a11y: {

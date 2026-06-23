@@ -29,25 +29,20 @@ import {
   getOutcome,
 } from '../engine/combat.js';
 import { STRATEGY_PICK } from '../engine/gameState.js';
-import { getEntityStatuses } from '../engine/statuses.js';
 import { createEstimator } from '../engine/estimator.js';
 import { HEROES } from '../data/heroes/index.js';
 import { DUMMY_ENEMY } from '../data/enemies/index.js';
 import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
-import { longDescription, powerName } from '../ui/powerText.js';
+import { powerName } from '../ui/powerText.js';
 import { perkLongDescription } from '../ui/perkText.js';
-import { statusListShort } from '../ui/statusText.js';
 import { createListNavigator } from '../ui/listNavigation.js';
 import { turnMessages, resolutionMessages, turnStartMessage, perkActivationMessage } from '../ui/combatMessages.js';
-
-/** Disposition visuelle du plateau : lignes ciel / surface / terre. */
-const BOARD_ROWS = [
-  { labelKey: 'sky', indices: [6, 7, 8] },
-  { labelKey: 'surface', indices: [3, 4, 5] },
-  { labelKey: 'ground', indices: [0, 1, 2] },
-];
+import { BOARD_ROWS, indexToXY, xyToIndex, describeBoardCell } from '../ui/boardText.js';
+import { createZoneSelector } from '../ui/zoneSelector.js';
+import { canStartManeuver, executeManeuver } from '../engine/maneuver.js';
+import { validateAction, createAction } from '../engine/actions.js';
 
 /** Déplacements 2D associés aux flèches : [dx, dy]. */
 const ARROW_DELTAS = {
@@ -93,6 +88,12 @@ export function createCombatScene() {
   let boardY = 0;
   let actionCursor = 0;
   let actions = [];
+
+  // Sélecteur de zone actif (null = aucun). Remplace temporairement onBoardKey.
+  let activeSelector = null;
+  // Indirection mutable : la zone Plateau appelle toujours boardKeyHandler(e),
+  // ce qui permet de substituer le handler du sélecteur sans reconstruire les zones.
+  let boardKeyHandler = null; // initialisé après définition de onBoardKey
 
   // Navigateurs verticaux des zones « liste » (duo, ennemi, historique).
   let duoNav = null;
@@ -249,7 +250,7 @@ export function createCombatScene() {
     const zones = [
       { id: 'enemy', element: enemyZoneEl, label: L.enemy, onEnter: () => enemyNav.reset(), onKey: (e) => enemyNav.onKey(e) },
       { id: 'duo', element: duoZoneEl, label: L.duo, onEnter: () => duoNav.reset(), onKey: (e) => duoNav.onKey(e) },
-      { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: onBoardKey },
+      { id: 'board', element: boardZoneEl, label: L.board, onEnter: () => describeCell(), onKey: (e) => boardKeyHandler(e) },
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
       { id: 'history', element: historyZoneEl, label: L.history, noAria: true, onEnter: () => describeHistory(), onKey: (e) => historyNav.onKey(e) },
     ];
@@ -270,43 +271,17 @@ export function createCombatScene() {
   // les <p> de la zone. Il n'y a donc plus de résumé unique describeDuo/Enemy.
 
   function boardIndexAt(x, y) {
-    return BOARD_ROWS[y].indices[x];
-  }
-
-  function positionOf(index) {
-    for (let y = 0; y < BOARD_ROWS.length; y++) {
-      const x = BOARD_ROWS[y].indices.indexOf(index);
-      if (x >= 0) return { x, y };
-    }
-    return { x: 0, y: 0 };
-  }
-
-  /** Met une majuscule à la première lettre (casse de phrase). */
-  function capitalizeFirst(text) {
-    return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+    return xyToIndex(x, y);
   }
 
   /**
-   * Annonce d'une case. Ordre : statuts de la ZONE (descriptions courtes), puis
-   * le pouvoir avec ses propres statuts (description longue de plateau), puis la
-   * position. Exemples :
+   * Annonce d'une case. Délègue à boardText.describeBoardCell avec l'état courant.
+   * Exemples :
    *   « Gel 1, Plaquage lourd, épuisement 1 : +4 attaque…, Ciel Droite »
    *   « Bouclier : +1 défense…, Surface Gauche »
    */
   function describeCellAt(index) {
-    const L = labels();
-    const area = state.board[index];
-    const { x, y } = positionOf(index);
-    const position = `${[L.sky, L.surface, L.ground][y]} ${[L.left, L.center, L.right][x]}`;
-    const power = area.power;
-
-    const areaPart = statusListShort(area.statuses, context.strings); // statuts de zone
-    const core = power
-      ? longDescription(power, context.strings, getEntityStatuses(state, power))
-      : L.empty;
-    const content = areaPart ? `${areaPart}, ${core}` : core;
-
-    return `${capitalizeFirst(content)}, ${position}`;
+    return describeBoardCell(index, state.board, context.strings, state);
   }
 
   function describeCell() {
@@ -417,19 +392,147 @@ export function createCombatScene() {
 
   // --- Touches des zones -----------------------------------------------------
 
+  // --- Manœuvre : sélection de la cible ----------------------------------------
+
+  /**
+   * Résout une clé pointée (ex. 'action.blocked.anchored') dans le pack de langue.
+   * Retourne null si la clé ou le chemin n'existe pas.
+   */
+  function resolveKey(key) {
+    return key?.split('.').reduce((obj, part) => obj?.[part], context.strings) ?? null;
+  }
+
+  /**
+   * Ouvre le sélecteur de zone pour choisir la cible d'une manœuvre.
+   * La source est déjà connue (zone sur laquelle le joueur a pressé Entrée).
+   * @param {number} sourcePos  index 0–8 de la zone source
+   */
+  function openManeuverSelector(sourcePos) {
+    if (activeSelector) activeSelector.close();
+
+    const strings = context.strings;
+    const sourcePower = state.board[sourcePos].power;
+    const srcName = powerName(sourcePower, strings);
+    const openMsg = format(
+      strings?.maneuver?.selectTarget
+        ?? 'Choose a zone to swap with {name}. Arrow keys, Enter to confirm, Escape to cancel.',
+      { name: srcName },
+    );
+
+    activeSelector = createZoneSelector({
+      tdByIndex,
+      strings,
+      announce: context.announce,
+      getZoneState: (pos) => {
+        if (pos === sourcePos) return { status: 'forbidden' };
+        const { allowed, reason } = validateAction(state, createAction('swap_powers', {
+          source: sourcePos, target: pos, data: { maxDistance: 1 },
+        }));
+        if (allowed) return { status: 'selectable' };
+        if (reason === 'action.blocked.out_of_range') return { status: 'out_of_range' };
+        return { status: 'forbidden', sources: [reason] };
+      },
+      describeCell: describeCellAt,
+      openMessage: openMsg,
+      forbiddenPrefix: strings?.maneuver?.swapForbidden ?? 'Swap forbidden',
+      onConfirm: (targetPos) => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        // Déplace le curseur sur la case confirmée avant toute annonce.
+        const { x, y } = indexToXY(targetPos);
+        boardX = x;
+        boardY = y;
+        const result = executeManeuver(state, sourcePos, targetPos);
+        const resultMsg = result.success
+          ? (strings?.maneuver?.swapDone ?? 'Swap done.')
+          : (resolveKey(result.reason) ?? result.reason ?? '');
+        updateView(); // applique applyBoardCursor + état du plateau
+        say(`${resultMsg} ${describeCell()}`);
+      },
+      onCancel: () => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        // Curseur inchangé ; annonce l'annulation + la case courante.
+        say(`${strings?.maneuver?.cancelled ?? 'Cancelled.'} ${describeCell()}`);
+      },
+      initialPosition: sourcePos,
+    });
+
+    boardKeyHandler = activeSelector.handleKey;
+    activeSelector.open();
+    controller.activate(2, { silent: true }); // zone Plateau = index 2
+  }
+
+  // --- Sélecteur de zone (test Maj+S) ----------------------------------------
+
+  /**
+   * Ouvre le sélecteur de zone pour test. La zone centre (4) est interdite,
+   * les 4 adjacentes orthogonales sont sélectionnables, les autres hors portée.
+   * Maj+S : raccourci temporaire de débogage uniquement.
+   */
+  function openTestZoneSelector() {
+    if (activeSelector) activeSelector.close();
+
+    const ADJACENT = new Set([1, 3, 5, 7]);
+    activeSelector = createZoneSelector({
+      tdByIndex,
+      strings: context.strings,
+      announce: context.announce,
+      getZoneState: (pos) => {
+        if (pos === 4) return { status: 'forbidden' };
+        if (ADJACENT.has(pos)) return { status: 'selectable' };
+        return { status: 'out_of_range' };
+      },
+      describeCell: describeCellAt,
+      openMessage: context.strings?.zoneSelector?.testOpen
+        ?? 'Sélection de zone. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+      forbiddenPrefix: context.strings?.zoneSelector?.testForbidden ?? 'Zone centrale interdite',
+      onConfirm: (pos) => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        say(`${context.strings?.zoneSelector?.confirmed ?? 'Zone confirmée'} : ${describeCellAt(pos)}`);
+        updateView();
+      },
+      onCancel: () => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        say(context.strings?.zoneSelector?.cancelled ?? 'Sélection annulée.');
+      },
+      initialPosition: 3,
+    });
+
+    boardKeyHandler = activeSelector.handleKey;
+    activeSelector.open();
+    controller.activate(2, { silent: true }); // zone Plateau = index 2
+  }
+
   function onBoardKey(event) {
     const delta = ARROW_DELTAS[event.key];
-    if (!delta) return false;
-    const nx = clamp(boardX + delta[0], 0, 2);
-    const ny = clamp(boardY + delta[1], 0, 2);
-    // Bord atteint : la touche est consommée (pas de défilement de page) mais
-    // rien d'autre ne se passe — aucun déplacement, aucune annonce.
-    if (nx === boardX && ny === boardY) return true;
-    boardX = nx;
-    boardY = ny;
-    applyBoardCursor();
-    say(describeCell());
-    return true;
+    if (delta) {
+      const nx = clamp(boardX + delta[0], 0, 2);
+      const ny = clamp(boardY + delta[1], 0, 2);
+      // Bord atteint : touche consommée mais aucun déplacement ni annonce.
+      if (nx === boardX && ny === boardY) return true;
+      boardX = nx;
+      boardY = ny;
+      applyBoardCursor();
+      say(describeCell());
+      return true;
+    }
+
+    if (event.key === 'Enter') {
+      const currentIdx = boardIndexAt(boardX, boardY);
+      const power = state.board[currentIdx]?.power;
+      if (!power) return true; // zone vide — rien à faire
+      if (!canStartManeuver(state)) {
+        say(context.strings?.maneuver?.no_points ?? 'No maneuvers left.');
+        return true;
+      }
+      openManeuverSelector(currentIdx);
+      return true;
+    }
+
+    return false;
   }
 
   function onActionsKey(event) {
@@ -610,6 +713,7 @@ export function createCombatScene() {
         getCombatState: () => state,
       });
 
+      boardKeyHandler = onBoardKey;
       buildView();
       context.root.replaceChildren(appEl);
       controller.mount(); // active la zone par défaut (plateau), focus seul
@@ -619,8 +723,14 @@ export function createCombatScene() {
       const L = labels();
       say(`${L.instructions} ${controller.describeActive()}`);
 
-      // Raccourcis globaux (fin de tour + annonces + emplacements 1–9).
+      // Raccourcis globaux (fin de tour + annonces + emplacements 1–9 + Maj+S test).
       onKeydown = (event) => {
+        // Maj+S : ouvre le sélecteur de zone de test (debug uniquement).
+        if (event.key === 'S' && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault();
+          openTestZoneSelector();
+          return;
+        }
         const binding = matchKeybinding(event);
         if (binding) {
           event.preventDefault();
@@ -656,6 +766,8 @@ export function createCombatScene() {
       boardX = 0;
       boardY = 0;
       actionCursor = 0;
+      activeSelector = null;
+      boardKeyHandler = null;
       duoNav = null;
       enemyNav = null;
       historyNav = null;
