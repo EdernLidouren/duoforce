@@ -35,14 +35,17 @@ import { DUMMY_ENEMY } from '../data/enemies/index.js';
 import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
-import { powerName } from '../ui/powerText.js';
+import { powerName, longDescription } from '../ui/powerText.js';
 import { perkLongDescription } from '../ui/perkText.js';
 import { createListNavigator } from '../ui/listNavigation.js';
 import { turnMessages, resolutionMessages, turnStartMessage, perkActivationMessage } from '../ui/combatMessages.js';
 import { BOARD_ROWS, indexToXY, xyToIndex, describeBoardCell } from '../ui/boardText.js';
 import { createZoneSelector } from '../ui/zoneSelector.js';
-import { canStartManeuver, executeManeuver } from '../engine/maneuver.js';
+import { createStrategyPicker } from '../ui/strategyPicker.js';
+import { canStartManeuver, canManeuverFrom, executeManeuver } from '../engine/maneuver.js';
 import { validateAction, createAction } from '../engine/actions.js';
+import { canRemove, canDiscard } from '../engine/powerActions.js';
+import { buildCandidates, executeStrategy, canUseStrategySource } from '../engine/strategy.js';
 
 /** Déplacements 2D associés aux flèches : [dx, dy]. */
 const ARROW_DELTAS = {
@@ -181,6 +184,10 @@ export function createCombatScene() {
           el('th', { scope: 'row', textContent: rowLabel[row.labelKey] }),
           ...row.indices.map((i) => {
             const td = el('td', {});
+            td.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              openStrategyUI(i);
+            });
             tdByIndex.set(i, td);
             return td;
           }),
@@ -424,13 +431,19 @@ export function createCombatScene() {
       strings,
       announce: context.announce,
       getZoneState: (pos) => {
-        if (pos === sourcePos) return { status: 'forbidden' };
+        if (pos === sourcePos) return {
+          status: 'forbidden',
+          label: strings?.maneuver?.selectedSource ?? 'Selected',
+        };
         const { allowed, reason } = validateAction(state, createAction('swap_powers', {
           source: sourcePos, target: pos, data: { maxDistance: 1 },
         }));
         if (allowed) return { status: 'selectable' };
         if (reason === 'action.blocked.out_of_range') return { status: 'out_of_range' };
-        return { status: 'forbidden', sources: [reason] };
+        const label = reason === 'action.blocked.anchored'
+          ? (strings?.maneuver?.immovable ?? 'Immovable')
+          : (strings?.maneuver?.swapForbidden ?? 'Swap forbidden');
+        return { status: 'forbidden', label, sources: [reason] };
       },
       describeCell: describeCellAt,
       openMessage: openMsg,
@@ -506,6 +519,78 @@ export function createCombatScene() {
     controller.activate(2, { silent: true }); // zone Plateau = index 2
   }
 
+  // --- Stratégie : remplacement d'un pouvoir ------------------------------------
+
+  /**
+   * Ouvre le flux de sélection de stratégie pour la zone donnée.
+   * Vérifie toutes les conditions avant d'ouvrir toute interface.
+   * @param {number} sourcePos  index 0–8 de la zone source
+   */
+  function openStrategyUI(sourcePos) {
+    const strings = context.strings;
+    const power = state.board[sourcePos]?.power;
+
+    if (!power) {
+      say(strings?.strategy?.empty ?? 'No power in this area.');
+      return;
+    }
+    if (state.duo.strategy < 1) {
+      say(strings?.strategy?.no_points ?? 'No strategy points.');
+      return;
+    }
+
+    const sourceCheck = canUseStrategySource(state, power, sourcePos);
+    if (!sourceCheck.allowed) {
+      const msg = resolveKey(sourceCheck.reason) ?? sourceCheck.reason ?? '';
+      const src = sourceCheck.sources.length > 0 ? ` (${sourceCheck.sources.join(', ')})` : '';
+      say(msg + src);
+      return;
+    }
+
+    const candidates = buildCandidates(state, sourcePos);
+    if (candidates.length === 0) {
+      say(strings?.strategy?.no_candidates ?? 'No replacement available.');
+      return;
+    }
+
+    function applyStrategy(chosen) {
+      executeStrategy(state, sourcePos, chosen);
+      updateView();
+      say(`${strings?.strategy?.done ?? 'Strategy applied.'} ${describeCell()}`);
+    }
+
+    // 1 seul candidat → sélection automatique, pas de menu.
+    if (candidates.length === 1) {
+      applyStrategy(candidates[0]);
+      return;
+    }
+
+    // Plusieurs candidats → menu de sélection linéaire.
+    if (activeSelector) activeSelector.close();
+
+    activeSelector = createStrategyPicker({
+      items: candidates,
+      getLabel: (p) => longDescription(p, strings),
+      announce: say,
+      openMessage: strings?.strategy?.pickTitle
+        ?? 'Choose a replacement. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+      onConfirm: (chosen) => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        applyStrategy(chosen);
+      },
+      onCancel: () => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        say(strings?.strategy?.cancelled ?? 'Strategy cancelled.');
+      },
+    });
+
+    boardKeyHandler = activeSelector.handleKey;
+    activeSelector.open();
+    controller.activate(2, { silent: true }); // zone Plateau = index 2
+  }
+
   function onBoardKey(event) {
     const delta = ARROW_DELTAS[event.key];
     if (delta) {
@@ -528,7 +613,16 @@ export function createCombatScene() {
         say(context.strings?.maneuver?.no_points ?? 'No maneuvers left.');
         return true;
       }
+      if (!canManeuverFrom(state, currentIdx)) {
+        say(context.strings?.maneuver?.immovable ?? 'Immovable');
+        return true;
+      }
       openManeuverSelector(currentIdx);
+      return true;
+    }
+
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      openStrategyUI(boardIndexAt(boardX, boardY));
       return true;
     }
 

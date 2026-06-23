@@ -253,7 +253,7 @@ export default {
     },
     gravity_beam_power: {
       name: 'Rayon gravitationnel',
-      description: 'Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage à chaque pouvoir.',
+      description: 'Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage sur chaque case.',
     },
     weightlessness_power: {
       name: 'impesanteur',
@@ -326,6 +326,15 @@ export default {
     backToMenu: 'Retour au menu',
   },
 
+  power: {
+    blocked: {
+      discard: 'Ce pouvoir ne peut pas être défaussé.',
+      remove:  'Ce pouvoir ne peut pas être retiré du plateau.',
+      place:   'Ce pouvoir ne peut pas être posé ici.',
+      draw:    'Ce pouvoir ne peut pas être proposé.',
+    },
+  },
+
   action: {
     blocked: {
       anchored: 'Ce pouvoir est ancré et ne peut pas être déplacé.',
@@ -342,6 +351,17 @@ export default {
     swapForbidden: 'Échange interdit',
     swapDone:      'Échange effectué.',
     cancelled:     'Manœuvre annulée.',
+    immovable:     'Inamovible',
+    selectedSource: 'Sélectionné',
+  },
+
+  strategy: {
+    no_points:    "Vous n'avez plus de stratégies.",
+    empty:        'Aucun pouvoir dans cette zone.',
+    no_candidates: 'Aucun pouvoir de remplacement disponible.',
+    done:         'Stratégie appliquée.',
+    cancelled:    'Stratégie annulée.',
+    pickTitle:    'Choisissez un remplacement. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
   },
 
   zoneSelector: {

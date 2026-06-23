@@ -160,7 +160,7 @@ export function exilePower(state, power) {
  * IMBLOQUABLES (ignorent la défense) égaux à une fraction de ses PV max.
  * @param {object} state
  */
-function reconstituteDeck(state) {
+export function reconstituteDeck(state) {
   state.deck = shuffle(state.discard, state.rng);
   state.discard = [];
 

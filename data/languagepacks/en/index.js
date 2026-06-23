@@ -245,7 +245,7 @@ export default {
     },
     gravity_beam_power: {
       name: 'gravity beam',
-      description: 'For each power above in the column, +3 attack and +1 anchor status to each of them.',
+      description: 'For each power above in the column, +3 attack and +1 anchor status on each area.',
     },
     weightlessness_power: {
       name: 'weightlessness',
@@ -317,6 +317,15 @@ export default {
     backToMenu: 'Back to menu',
   },
 
+  power: {
+    blocked: {
+      discard: 'This power cannot be discarded.',
+      remove:  'This power cannot be removed from the board.',
+      place:   'This power cannot be placed here.',
+      draw:    'This power cannot be offered.',
+    },
+  },
+
   action: {
     blocked: {
       anchored: 'This power is anchored and cannot be moved.',
@@ -333,6 +342,17 @@ export default {
     swapForbidden: 'Swap forbidden',
     swapDone:      'Swap done.',
     cancelled:     'Maneuver cancelled.',
+    immovable:     'Immovable',
+    selectedSource: 'Selected',
+  },
+
+  strategy: {
+    no_points:     'You have no strategies left.',
+    empty:         'No power in this area.',
+    no_candidates: 'No replacement available.',
+    done:          'Strategy applied.',
+    cancelled:     'Strategy cancelled.',
+    pickTitle:     'Choose a replacement. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
   },
 
   zoneSelector: {

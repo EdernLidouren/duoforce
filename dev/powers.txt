@@ -161,8 +161,8 @@ id : gravity_beam_power
 nom (fr, en) : Rayon gravitationnel, gravity beam
 type : offensif
 rareté : peu commune
-Description mécanique : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque, et le pouvoir en question gagne 1 statut ancrage.
-Description en jeu : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage à chaque pouvoir.
+Description mécanique : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque, et la case du pouvoir en question gagne 1 statut ancrage.
+Description en jeu : Pour chaque pouvoir au-dessus dans la colonne, +3 attaque et +1 statut ancrage sur chaque case.
 
 id : weightlessness_power
 nom (fr, en) : impesanteur, weightlessness

@@ -99,19 +99,24 @@ export function processAction(combatState, action) {
 /**
  * Vérifie la faisabilité d'une action en lecture seule (même verdict que
  * processAction, mais sur une copie — l'action originale n'est pas mutée).
+ *
+ * `data.sources` est réinitialisé sur la copie : les intercepteurs peuvent y
+ * pousser l'origine de leur blocage (nom de statut, perk…). Le tableau retourné
+ * dans `sources` liste toutes les origines collectées.
+ *
  * @param {object} combatState
  * @param {object} action
- * @returns {{ allowed: boolean, reason: string|null }}
+ * @returns {{ allowed: boolean, reason: string|null, sources: string[] }}
  */
 export function validateAction(combatState, action) {
-  const clone = { ...action };
+  const clone = { ...action, data: { ...action.data, sources: [] } };
   for (const { actionType, fn } of registry) {
     if (clone.cancelled) break;
     if (actionType === '*' || actionType === action.type) {
       fn(clone, combatState);
     }
   }
-  return { allowed: !clone.cancelled, reason: clone.reason ?? null };
+  return { allowed: !clone.cancelled, reason: clone.reason ?? null, sources: clone.data.sources };
 }
 
 /**
@@ -157,7 +162,12 @@ function dispatch(combatState, action) {
     case 'add_defense':     execAddStat(combatState, action, 'defense'); break;
     case 'swap_powers':     execSwapPowers(combatState, action);         break;
     case 'spend_maneuver':  execSpendManeuver(combatState, action);      break;
-    // 'move_power' : exécuteur à venir (déplacement unilatéral, sans cible).
+    case 'remove_power':   execRemovePower(combatState, action);         break;
+    case 'discard_power':  execDiscardPower(combatState, action);        break;
+    case 'place_power':    execPlacePower(combatState, action);          break;
+    case 'spend_strategy': execSpendStrategy(combatState, action);       break;
+    // 'draw_power'  : validation uniquement, pas d'exécuteur.
+    // 'move_power'  : exécuteur à venir (déplacement unilatéral, sans cible).
     default: break;
   }
 }
@@ -235,6 +245,32 @@ function execSpendManeuver(combatState, action) {
   const subject = combatState[action.target ?? 'duo'];
   if (!subject || typeof action.value !== 'number') return;
   subject.maneuver -= action.value;
+}
+
+/** Retire un pouvoir de sa zone de plateau (laisse la zone vide). */
+function execRemovePower(combatState, action) {
+  const area = combatState.board?.[action.target];
+  if (!area) return;
+  area.power = null;
+}
+
+/** Envoie le pouvoir source en défausse (indépendamment de son emplacement). */
+function execDiscardPower(combatState, action) {
+  if (action.source != null) combatState.discard.push(action.source);
+}
+
+/** Pose le pouvoir source dans la zone cible. */
+function execPlacePower(combatState, action) {
+  const area = combatState.board?.[action.target];
+  if (!area) return;
+  area.power = action.source ?? null;
+}
+
+/** Décrémente le compteur de stratégies du camp cible. */
+function execSpendStrategy(combatState, action) {
+  const subject = combatState[action.target ?? 'duo'];
+  if (!subject || typeof action.value !== 'number') return;
+  subject.strategy -= action.value;
 }
 
 // --- Intercepteurs natifs ----------------------------------------------------

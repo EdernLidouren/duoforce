@@ -97,29 +97,30 @@ export function createZoneSelector({
   }
 
   function announceCursor() {
-    const { status } = getZoneState(cursorPos);
+    const zoneState = getZoneState(cursorPos);
     const desc = describeCell(cursorPos);
-    if (status === 'selectable') {
+    if (zoneState.status === 'selectable') {
       announce.polite(desc);
-    } else if (status === 'out_of_range') {
+    } else if (zoneState.status === 'out_of_range') {
       announce.polite(`${outOfRangeLabel()}. ${desc}`);
     } else {
-      const prefix = forbiddenPrefix ?? strings?.zoneSelector?.forbidden ?? 'Forbidden';
-      announce.polite(`${prefix}. ${desc}`);
+      // 'forbidden' : label par zone prioritaire sur forbiddenPrefix global.
+      const prefix = zoneState.label ?? forbiddenPrefix ?? strings?.zoneSelector?.forbidden ?? 'Forbidden';
+      announce.polite(`${prefix}, ${desc}`);
     }
   }
 
   // --- Clavier ---------------------------------------------------------------
 
   function tryConfirm() {
-    const { status } = getZoneState(cursorPos);
-    if (status === 'selectable') {
+    const zoneState = getZoneState(cursorPos);
+    if (zoneState.status === 'selectable') {
       close();
       onConfirm(cursorPos);
-    } else if (status === 'out_of_range') {
+    } else if (zoneState.status === 'out_of_range') {
       announce.polite(outOfRangeLabel());
     } else {
-      const prefix = forbiddenPrefix ?? strings?.zoneSelector?.forbidden ?? 'Forbidden';
+      const prefix = zoneState.label ?? forbiddenPrefix ?? strings?.zoneSelector?.forbidden ?? 'Forbidden';
       announce.polite(prefix);
     }
   }

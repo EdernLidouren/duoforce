@@ -48,6 +48,11 @@ const action = createAction('apply_status', {
 | `add_defense`   | `'duo'` ou `'enemy'` | `number` | Hors résolution uniquement |
 | `swap_powers`   | `number` (position dest.) | — | `source`: position source ; `data.maxDistance?`: portée |
 | `spend_maneuver` | `'duo'`\|`'enemy'`       | `number` | Décrémente la manœuvre |
+| `spend_strategy` | `'duo'`\|`'enemy'`       | `number` | Décrémente la stratégie |
+| `remove_power`  | `number` (position act.)  | — | `source`: pouvoir ; vide la zone |
+| `discard_power` | `number` (position act.)  | — | `source`: pouvoir ; envoie en défausse |
+| `place_power`   | `number` (position dest.) | — | `source`: pouvoir ; pose dans la zone |
+| `draw_power`    | `null`                    | — | `source`: pouvoir candidat (validation seule, pas d'exécuteur) |
 | `move_power`    | `number` (position dest.) | — | `source`: position source (exécuteur à venir) |
 
 Pour `target.type` des actions de statut :
@@ -168,6 +173,62 @@ reste la responsabilité de `canManeuverTo` / `validateAction`.
 
 ---
 
+## Mécanique de stratégie (`src/engine/strategy.js`)
+
+La stratégie permet au joueur de remplacer un pouvoir du plateau par un pouvoir tiré de la pioche.
+
+### Composition des capacités
+
+Aucune permission propre à la stratégie n'est introduite : la mécanique compose uniquement les capacités atomiques existantes, toutes interceptables.
+
+| Rôle | Capacités requises |
+|---|---|
+| Pouvoir source (remplacé) | `remove_power` **ET** `discard_power` tous les deux allowed |
+| Pouvoir remplaçant (tiré) | `draw_power` **ET** `place_power` (sur la zone source) tous les deux allowed |
+
+### Logique de filtrage de la pioche
+
+1. Si `deck.length < STRATEGY_PICK`, renouveler la pioche (`reconstituteDeck` — défausse mélangée, puis exil si nécessaire avec pénalité PV).
+2. Parcourir la pioche dans l'ordre de tirage (du sommet vers le fond).
+3. Pour chaque pouvoir, tester `canDraw` puis `canPlace` (sur la zone source) :
+   - **Raté** : le pouvoir est ignoré et reste à sa place dans la pioche, sans être tiré ni déplacé.
+   - **Valide** : ajouté à la liste des candidats.
+4. S'arrêter dès `STRATEGY_PICK` candidats ou la fin de la pioche.
+
+**0 candidat** → annonce `strategy.no_candidates`, aucun point consommé, aucune interface ouverte.  
+**1 candidat** → sélection automatique, pas de menu.  
+**Plusieurs** → menu à navigation linéaire (`createStrategyPicker`, `src/ui/strategyPicker.js`).
+
+### Séquence d'exécution (après sélection du remplaçant)
+
+```
+1. executeAction(remove_power,  source=sourcePower, target=sourcePos)
+2. executeAction(discard_power, source=sourcePower, target=sourcePos)
+3. state.deck.splice(deckIdx, 1)          ← retire le remplaçant de la pioche
+4. executeAction(place_power,   source=chosenPower, target=sourcePos)
+5. executeAction(spend_strategy, target='duo', value=1)
+```
+
+Le point de stratégie est consommé **en dernier**, après succès de l'ensemble.
+
+### Flux UI (`src/scenes/combat.js`)
+
+```
+Backspace / Delete / clic droit sur une case occupée
+  → zone vide ?           → announce strategy.empty
+  → duo.strategy < 1 ?    → announce strategy.no_points
+  → canUseStrategySource ? sinon → announce reason + sources
+  → buildCandidates()
+  → 0 candidats ?         → announce strategy.no_candidates
+  → 1 candidat ?          → executeStrategy directement (pas de menu)
+  → plusieurs ?           → createStrategyPicker
+      Flèches    → naviguer parmi les descriptions longues
+      Entrée     → executeStrategy + announce strategy.done + describeCell()
+      Échap      → announce strategy.cancelled  (aucun point consommé)
+```
+
+---
+
 ## `executeAction` — point d'entrée unique
 
 ```js
@@ -201,11 +262,73 @@ décider de retourner une activation ou non).
 | `processAction` | oui | **non** | usages avancés, tests d'intercepteurs |
 | `validateAction` | **non** (copie) | **non** | UI : tester la faisabilité avant de proposer |
 
+`validateAction` retourne `{ allowed, reason, sources }` :
+- `allowed` : boolean
+- `reason` : clé de localisation du motif, ou `null`
+- `sources` : tableau des identifiants poussés par les intercepteurs (`action.data.sources`) — liste les origines d'interdiction pour les annonces NVDA
+
+Les intercepteurs collectent leurs origines ainsi :
+```js
+registerInterceptor('discard_power', (action, combatState) => {
+  if (someCondition) {
+    (action.data.sources ??= []).push('my_perk_id');
+    action.cancelled = true;
+    action.reason = 'power.blocked.discard';
+  }
+});
+```
+
 ```js
 // Test de faisabilité (UI) :
 const probe = createAction('swap_powers', { source: pos1, target: pos2 });
-const { allowed, reason } = validateAction(combatState, probe);
+const { allowed, reason, sources } = validateAction(combatState, probe);
 ```
+
+---
+
+## Capacités atomiques sur les pouvoirs (`src/engine/powerActions.js`)
+
+Quatre types d'action pour exprimer finement la faisabilité d'opérations sur un pouvoir, chacun interceptable indépendamment par un statut, un perk ou un sidekick.
+
+`remove_power`, `discard_power` et `place_power` disposent d'un exécuteur dans le dispatcher. `draw_power` est une capacité de validation uniquement (pas d'exécuteur) : elle sert à filtrer les candidats présentés au joueur, sans les tirer de la pioche.
+
+> **Composition de mécaniques de haut niveau** : une mécanique comme la stratégie se compose en combinant plusieurs capacités — le pouvoir source doit être à la fois `remove_power` (retirable) ET `discard_power` (défaussable) ; le remplaçant doit être à la fois `draw_power` (proposable) ET `place_power` (posable sur la zone cible).
+
+### Types et encodage
+
+| Type | `source` | `target` | `value` | Exécuteur | Signification |
+|---|---|---|---|---|---|
+| `remove_power`  | pouvoir | position actuelle (0–8)    | — | oui | Retire le pouvoir de sa zone (laisse la zone vide) |
+| `discard_power` | pouvoir | position actuelle (0–8)    | — | oui | Envoie le pouvoir à la défausse (indépendamment de son emplacement) |
+| `place_power`   | pouvoir | position destination (0–8) | — | oui | Pose le pouvoir dans la zone cible |
+| `draw_power`    | pouvoir | `null`                     | — | non | Valide la candidature du pouvoir ; jamais exécuté lors du filtrage |
+| `spend_strategy`| —       | `'duo'`\|`'enemy'`         | `number` | oui | Décrémente le compteur de stratégies |
+
+`discard_power` et `remove_power` sont distincts : retirer un pouvoir ne présume pas qu'il va en défausse (il peut partir en exil, être replacé). Un intercepteur peut autoriser le retrait mais interdire la défausse.
+
+### Helpers de faisabilité
+
+```js
+import { canDiscard, canRemove, canPlace, canDraw } from '../../engine/powerActions.js';
+
+const { allowed, reason, sources } = canDiscard(combatState, power, position);
+const { allowed, reason, sources } = canRemove(combatState, power, position);
+const { allowed, reason, sources } = canPlace(combatState, power, targetPosition);
+const { allowed, reason, sources } = canDraw(combatState, power);
+```
+
+Chaque helper construit l'action correspondante (avec `data.sources = []` initialisé), appelle `validateAction`, et retourne `{ allowed, reason, sources }`. `sources` liste les identifiants poussés par les intercepteurs — utile pour les annonces NVDA détaillant les origines d'interdiction.
+
+### Clés de localisation
+
+| Clé | Usage générique |
+|---|---|
+| `power.blocked.discard` | Défausse interdite |
+| `power.blocked.remove`  | Retrait interdit |
+| `power.blocked.place`   | Dépôt interdit |
+| `power.blocked.draw`    | Candidature interdite |
+
+Les intercepteurs spécifiques (perk, statut) peuvent utiliser leurs propres clés plus précises.
 
 ---
 
@@ -329,3 +452,12 @@ executeAction(combatState, createAction('deal_damage', {
 | `action.blocked.no_source_power` | Zone source vide — `swap_powers` impossible |
 | `action.blocked.out_of_range` | Zone cible hors de la portée `data.maxDistance` |
 | `action.blocked.no_maneuver` | Aucun point de manœuvre disponible |
+| `power.blocked.discard` | Défausse interdite |
+| `power.blocked.remove`  | Retrait interdit |
+| `power.blocked.place`   | Dépôt interdit |
+| `power.blocked.draw`    | Candidature interdite |
+| `strategy.no_points`    | Aucun point de stratégie disponible |
+| `strategy.empty`        | Zone source vide |
+| `strategy.no_candidates` | Aucun candidat de remplacement disponible |
+| `strategy.done`         | Remplacement réussi |
+| `strategy.cancelled`    | Stratégie annulée par le joueur |
