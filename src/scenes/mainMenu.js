@@ -1,40 +1,57 @@
 // src/scenes/mainMenu.js — Scène « menu principal ».
 //
 // Affiche le titre du jeu et une liste verticale de choix :
-//   Nouvelle partie · Options · Quitter  (stubs pour l'instant).
-// Navigation : ↑/↓ entre les choix, Entrée pour confirmer. Le choix actif est
-// annoncé via la région ARIA live à chaque déplacement (fourni par AbstractMenu).
+//   Nouvelle partie · [Continuer · Abandonner si save valide] · Partie test ·
+//   Options · Quitter  (+ entrées debug si activé).
 //
-// Choix d'architecture : le menu principal est une CONFIGURATION de LinearMenu
-// (orientation verticale), PAS une sous-classe. La hiérarchie de menus reste
-// ainsi à deux niveaux — base abstraite (AbstractMenu) + classes concrètes
-// (LinearMenu, GridMenu) — et les menus spécifiques sont de simples instances
-// dont le comportement des choix est branché via le callback onConfirm.
-//
-// La scène ne manipule pas le DOM : elle délègue tout le rendu et le cycle de
-// vie au composant LinearMenu (module ui/). Elle se contente de passer le
-// conteneur racine et de réagir aux confirmations.
+// Détection de sauvegarde : au montage, si localStorage contient un save dont
+// saveFormatVersion correspond à la version courante, les entrées Continuer et
+// Abandonner s'ajoutent sous Nouvelle partie.
 
 import { LinearMenu } from '../ui/menus/LinearMenu.js';
 import { SubMenu } from '../ui/menus/SubMenu.js';
+import { deserialize, createRun } from '../engine/run.js';
+import { getHeroById } from '../data/heroes/index.js';
+import { SAVE_FORMAT_VERSION } from '../config/version.js';
+
+const SAVE_KEY = 'duoforce_save';
 
 /** Identifiants stables des choix (découplés des libellés traduits). */
 export const MainMenuChoice = Object.freeze({
-  NEW_GAME: 'new-game',
-  OPTIONS: 'options',
-  QUIT: 'quit',
-  COMBAT_TEST: 'combat-test',
+  NEW_GAME:  'new-game',
+  CONTINUE:  'continue',
+  ABANDON:   'abandon',
+  TEST_RUN:  'test-run',
+  OPTIONS:   'options',
+  QUIT:      'quit',
+  COMBAT_TEST:         'combat-test',
   SUBMENU_TEST_INFO:   'submenu-test-info',
   SUBMENU_TEST_SINGLE: 'submenu-test-single',
   SUBMENU_TEST_MULTI:  'submenu-test-multi',
 });
 
 /**
+ * Lit et valide la sauvegarde locale.
+ * Retourne l'objet save si valide, null sinon.
+ */
+function loadValidSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const save = JSON.parse(raw);
+    if (save.saveFormatVersion !== SAVE_FORMAT_VERSION) return null;
+    return save;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fabrique de scène pour le routeur.
  * @returns {{ mount: Function, unmount: Function }}
  */
 export function createMainMenuScene() {
-  let activeMenu = null; // LinearMenu principal ou SubMenu courant
+  let activeMenu = null;
 
   return {
     mount(context) {
@@ -44,15 +61,25 @@ export function createMainMenuScene() {
       function mountMainMenu() {
         if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
 
+        const save = loadValidSave();
+        const m  = strings?.menu    ?? {};
+        const sm = strings?.submenu ?? {};
+
         const items = [
-          { id: MainMenuChoice.NEW_GAME, label: strings?.menu?.start ?? 'Nouvelle partie' },
-          { id: MainMenuChoice.OPTIONS,  label: strings?.menu?.options ?? 'Options' },
-          { id: MainMenuChoice.QUIT,     label: strings?.menu?.quit ?? 'Quitter' },
+          { id: MainMenuChoice.NEW_GAME, label: m.start ?? 'Nouvelle partie' },
         ];
 
+        if (save) {
+          items.push({ id: MainMenuChoice.CONTINUE, label: m.continue ?? 'Continuer la partie' });
+          items.push({ id: MainMenuChoice.ABANDON,  label: m.abandon  ?? 'Abandonner la partie' });
+        }
+
+        items.push({ id: MainMenuChoice.TEST_RUN, label: m.testRun ?? 'Partie test' });
+        items.push({ id: MainMenuChoice.OPTIONS,  label: m.options  ?? 'Options' });
+        items.push({ id: MainMenuChoice.QUIT,     label: m.quit     ?? 'Quitter' });
+
         if (debug?.enabled && debug?.showTestCombat) {
-          const sm = strings?.submenu ?? {};
-          items.push({ id: MainMenuChoice.COMBAT_TEST,        label: strings?.menu?.combatTest ?? 'Combat test' });
+          items.push({ id: MainMenuChoice.COMBAT_TEST,        label: m.combatTest        ?? 'Combat test' });
           items.push({ id: MainMenuChoice.SUBMENU_TEST_INFO,   label: sm.testInfoTitle   ?? 'Test sous-menu informatif' });
           items.push({ id: MainMenuChoice.SUBMENU_TEST_SINGLE, label: sm.testSingleTitle ?? 'Test sous-menu choix unique' });
           items.push({ id: MainMenuChoice.SUBMENU_TEST_MULTI,  label: sm.testMultiTitle  ?? 'Test sous-menu choix multiples' });
@@ -62,10 +89,10 @@ export function createMainMenuScene() {
           container: root,
           announce,
           orientation: 'vertical',
-          title: strings?.menu?.title ?? 'Duoforce',
-          ariaLabel: strings?.menu?.label ?? 'Menu principal',
-          interfaceName: strings?.menu?.title ?? 'Duoforce',
-          interfaceDescription: strings?.menu?.label ?? 'Menu principal',
+          title:         m.title ?? 'Duoforce',
+          ariaLabel:     m.label ?? 'Menu principal',
+          interfaceName: m.title ?? 'Duoforce',
+          interfaceDescription: m.label ?? 'Menu principal',
           items,
           onConfirm: (item) => handleMainChoice(item.id),
         });
@@ -77,10 +104,34 @@ export function createMainMenuScene() {
           context.router.go('new-game');
           return;
         }
+
+        if (id === MainMenuChoice.CONTINUE) {
+          const save = loadValidSave();
+          if (!save) { mountMainMenu(); return; }
+          context.run = deserialize(save);
+          context.router.go('run-hub');
+          return;
+        }
+
+        if (id === MainMenuChoice.ABANDON) {
+          localStorage.removeItem(SAVE_KEY);
+          mountMainMenu();
+          return;
+        }
+
+        if (id === MainMenuChoice.TEST_RUN) {
+          const h1 = getHeroById('hero_paladium');
+          const h2 = getHeroById('hero_mindel');
+          context.run = createRun({ heroes: [h1, h2] });
+          context.router.go('run-hub');
+          return;
+        }
+
         if (id === MainMenuChoice.COMBAT_TEST) {
           context.router.go('combat');
           return;
         }
+
         if (id === MainMenuChoice.SUBMENU_TEST_INFO) {
           openTestSubMenu('informative');
           return;
@@ -93,7 +144,8 @@ export function createMainMenuScene() {
           openTestSubMenu('multiple_choice');
           return;
         }
-        // Stubs.
+
+        // Options, Quitter : stubs.
         console.log('[mainMenu] choix sélectionné :', id);
       }
 
