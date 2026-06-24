@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Test séquence ennemis</title></head>
+<body>
+<script type="module">
+// Test déterministe : seed fixe → même séquence de 30 ennemis, toujours.
+
+import { createRun }        from '../src/engine/run.js';
+import { getCurrentEnemyId, getCombatIndex, advancePhase } from '../src/engine/run.js';
+import { getHeroById }      from '../src/data/heroes/index.js';
+
+const FIXED_SEED = 0xDEADBEEF;
+
+const heroes = [getHeroById('hero_paladium'), getHeroById('hero_mindel')];
+
+function buildSequence() {
+  const run = createRun({ heroes, seed: FIXED_SEED });
+  const seq = [];
+  for (let i = 0; i < 30; i++) {
+    const { round, phase } = run.progression;
+    const combatIndex = getCombatIndex(run);
+    const enemyId     = getCurrentEnemyId(run);
+    seq.push({ round, phase, combatIndex, enemyId });
+    advancePhase(run);
+  }
+  return seq;
+}
+
+// Construire deux fois : les séquences doivent être identiques.
+const seq1 = buildSequence();
+const seq2 = buildSequence();
+
+console.log('=== Séquence des 30 combats (seed 0xDEADBEEF) ===');
+seq1.forEach(({ round, phase, combatIndex, enemyId }) => {
+  const tag = phase === 3 ? ' [BOSS]' : phase === 2 ? ' [LT]  ' : ' [min] ';
+  console.log(`  Combat ${String(combatIndex).padStart(2)} — round ${round} phase ${phase}${tag} → ${enemyId}`);
+});
+
+// Vérification déterminisme
+const identical = seq1.every((e, i) => e.enemyId === seq2[i].enemyId && e.combatIndex === seq2[i].combatIndex);
+console.log('');
+console.log(`=== Déterminisme : séquences identiques → ${identical ? '✓ OK' : '✗ ERREUR'}`);
+
+// Vérification structure : combatIndex 1-30, phase cycle 1-2-3 répété 10 fois
+const structureOk = seq1.every(({ combatIndex, phase }, i) =>
+  combatIndex === i + 1 && phase === (i % 3) + 1
+);
+console.log(`=== Structure index/phase correcte → ${structureOk ? '✓ OK' : '✗ ERREUR'}`);
+
+// Vérification seed différent → séquence différente (probabiliste, quasi-certain)
+const run2 = createRun({ heroes, seed: FIXED_SEED + 1 });
+const seq3 = [];
+for (let i = 0; i < 30; i++) {
+  seq3.push(getCurrentEnemyId(run2));
+  advancePhase(run2);
+}
+// Avec les pools actuels (un seul ennemi), les séquences sont identiques :
+// c'est attendu et noté explicitement.
+console.log('');
+console.log('Note : avec un seul ennemi par pool, seeds différents → même séquence visible.');
+console.log('La diversité apparaîtra quand les pools seront enrichis.');
+</script>
+</body>
+</html>

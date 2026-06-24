@@ -301,7 +301,10 @@ export default {
   },
 
   enemies: {
-    enemy_dummy: 'Practice Dummy',
+    enemy_dummy:     'Practice Dummy',
+    enemy_gros_bras: 'Bruiser',
+    enemy_caid:      'Enforcer',
+    enemy_nemesis:   'Nemesis',
   },
 
   game: {
@@ -386,6 +389,44 @@ export default {
     cancelled:     'Selection cancelled.',
     testOpen:      'Zone selection test. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
     testForbidden: 'Central zone forbidden',
+  },
+
+  // New-game configuration scene.
+  newGame: {
+    title:              'New game',
+    label:              'Game configuration',
+    interfaceName:      'Configuration',
+    seed:               'Seed: {seed}',
+    hero1:              'First hero: {name}',
+    hero2:              'Second hero: {name}',
+    noneHero:           'None',
+    preview:            'Preview: {hp} max HP, {powers} powers',
+    launch:             'Start game',
+    back:               'Back to menu',
+    describeReady:      'Configuration complete. Start the game.',
+    describeNeedHeroes: 'Choose {count} more hero(es).',
+    seedPickerTitle:    'Choose seed',
+    seedRandom:         'Random',
+    heroSelectTitle:    'Choose a hero',
+    heroSelectClose:    'Cancel',
+    heroDetail: {
+      name:           'Name: {name}',
+      hp:             'Hit points: {hp}',
+      startingPowers: 'Starting powers ({count})',
+      perk:           'Signature: {name}',
+      perkFull:       'Signature: {name} — {description}',
+      choose:         'Choose this hero',
+      close:          'Close',
+    },
+    powersTitle: 'Starting powers',
+    powerEntry:  '{name} × {count}: {description}',
+    powersClose: 'Close',
+  },
+
+  // Short hero descriptions (id → description).
+  heroDescriptions: {
+    hero_paladium: 'Defensive hero. High resistance and close-range damage.',
+    hero_mindel:   'Control hero. Harnesses cold and gravity to weaken the enemy.',
   },
 
   a11y: {

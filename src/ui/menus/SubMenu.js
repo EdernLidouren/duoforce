@@ -148,6 +148,13 @@ export class SubMenu extends LinearMenu {
     if (item.id === VALIDATE_ID) { this._triggerValidate(); return; }
     if (item.id === CLOSE_ID)    { this._triggerClose();    return; }
 
+    // Action par item : override du mode pour cet item uniquement.
+    // Permet des items actionnables dans un sous-menu par ailleurs informatif.
+    if (item._isData && typeof item.onConfirm === 'function') {
+      item.onConfirm(item, index);
+      return;
+    }
+
     if (this._mode === 'informative') return;
 
     if (this._mode === 'single_choice') {

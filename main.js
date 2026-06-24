@@ -17,6 +17,7 @@ import { createAnnouncer } from './src/ui/announce.js';
 import { loadLanguagePack, DEFAULT_LANG } from './data/languagepacks/index.js';
 
 import { createMainMenuScene } from './src/scenes/mainMenu.js';
+import { createNewGameScene }  from './src/scenes/newGame.js';
 import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
@@ -41,8 +42,9 @@ async function bootstrap() {
   context.router = router; // permet aux scènes d'appeler context.router.go(...)
 
   // Enregistrement des scènes (clé → objet { mount, unmount }).
-  router.register('menu', createMainMenuScene());
-  router.register('game', createGameScene());
+  router.register('menu',     createMainMenuScene());
+  router.register('new-game', createNewGameScene());
+  router.register('game',     createGameScene());
   router.register('gameover', createGameOverScene());
   router.register('combat', createCombatScene());
 

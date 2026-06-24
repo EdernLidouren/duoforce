@@ -73,6 +73,10 @@ export function createMainMenuScene() {
       }
 
       function handleMainChoice(id) {
+        if (id === MainMenuChoice.NEW_GAME) {
+          context.router.go('new-game');
+          return;
+        }
         if (id === MainMenuChoice.COMBAT_TEST) {
           context.router.go('combat');
           return;

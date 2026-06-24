@@ -310,7 +310,10 @@ export default {
 
   // Noms des ennemis (indexés par nameId).
   enemies: {
-    enemy_dummy: 'Mannequin d’entraînement',
+    enemy_dummy:     ‘Mannequin d\’entraînement’,
+    enemy_gros_bras: ‘Gros bras’,
+    enemy_caid:      ‘Caïd’,
+    enemy_nemesis:   ‘Némésis’,
   },
 
   game: {
@@ -396,6 +399,44 @@ export default {
     cancelled:     'Sélection annulée.',
     testOpen:      'Sélection de zone de test. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
     testForbidden: 'Zone centrale interdite',
+  },
+
+  // Scène de configuration de nouvelle partie.
+  newGame: {
+    title:              'Nouvelle partie',
+    label:              'Configuration de la partie',
+    interfaceName:      'Configuration',
+    seed:               'Graine : {seed}',
+    hero1:              'Premier héros : {name}',
+    hero2:              'Second héros : {name}',
+    noneHero:           'Aucun',
+    preview:            'Aperçu : {hp} PV max, {powers} pouvoirs',
+    launch:             'Lancer la partie',
+    back:               'Retour au menu',
+    describeReady:      'Configuration complète. Lancez la partie.',
+    describeNeedHeroes: 'Choisissez encore {count} héros.',
+    seedPickerTitle:    'Choisir la graine',
+    seedRandom:         'Aléatoire',
+    heroSelectTitle:    'Choisir un héros',
+    heroSelectClose:    'Annuler',
+    heroDetail: {
+      name:           'Nom : {name}',
+      hp:             'Points de vie : {hp}',
+      startingPowers: 'Pouvoirs de départ ({count})',
+      perk:           'Signature : {name}',
+      perkFull:       'Signature : {name} — {description}',
+      choose:         'Choisir ce héros',
+      close:          'Fermer',
+    },
+    powersTitle: 'Pouvoirs de départ',
+    powerEntry:  '{name} × {count} : {description}',
+    powersClose: 'Fermer',
+  },
+
+  // Descriptions courtes des héros (id → description).
+  heroDescriptions: {
+    hero_paladium: "Héros défensif. Résistance élevée et dégâts de corps à corps.",
+    hero_mindel:   "Héros de contrôle. Manipule le froid et la gravité pour affaiblir l'adversaire.",
   },
 
   a11y: {

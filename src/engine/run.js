@@ -26,9 +26,9 @@ import { debug } from '../config/debug.js';
 // Pools par rôle de phase (enrichis quand du contenu est ajouté au catalogue).
 // Phase 1 = éclaireurs, phase 2 = lieutenants, phase 3 = boss.
 
-const POOL_MINION      = ['enemy_dummy'];
-const POOL_LIEUTENANT  = ['enemy_dummy'];
-const POOL_BOSS        = ['enemy_dummy'];
+const POOL_MINION      = ['enemy_gros_bras'];
+const POOL_LIEUTENANT  = ['enemy_caid'];
+const POOL_BOSS        = ['enemy_nemesis'];
 
 /**
  * Produit un flottant [0, 1) déterministe à partir de deux entiers.
@@ -58,6 +58,18 @@ export function getEnemyId(seed, combatIndex) {
   if (phase === 3) return seededPick(seed, combatIndex, POOL_BOSS);
   if (phase === 2) return seededPick(seed, combatIndex, POOL_LIEUTENANT);
   return seededPick(seed, combatIndex, POOL_MINION);
+}
+
+/**
+ * Retourne l'id de l'ennemi du combat COURANT de la run.
+ * Façade de haut niveau : les scènes demandent « quel est le prochain ennemi »
+ * sans rien connaître du mécanisme de seed ni de l'index linéaire.
+ *
+ * @param {object} run
+ * @returns {string}  id d'ennemi
+ */
+export function getCurrentEnemyId(run) {
+  return getEnemyId(run.seed, getCombatIndex(run));
 }
 
 // --- Index de combat linéaire ------------------------------------------------
