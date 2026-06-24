@@ -19,8 +19,14 @@ export const Intent = Object.freeze({
   MOVE_RIGHT: 'move-right',
   MOVE_FIRST: 'move-first', // Origine
   MOVE_LAST: 'move-last',   // Fin
+  // Entrée / clic gauche → action primaire (confirmer, sélectionner).
   CONFIRM: 'confirm',
+  // Espace / clic droit → action secondaire (contexte, option).
+  // Si l'item actif n'a pas d'action secondaire déclarée, ne fait rien.
+  CONFIRM_SECONDARY: 'confirm-secondary',
   CANCEL: 'cancel',
+  // Retour-arrière → décrit l'interface courante via la région ARIA live.
+  DESCRIBE: 'describe',
 });
 
 /** Carte par défaut : code touche (KeyboardEvent.key) → intention. */
@@ -32,8 +38,9 @@ export const defaultKeymap = Object.freeze({
   Home: Intent.MOVE_FIRST,
   End: Intent.MOVE_LAST,
   Enter: Intent.CONFIRM,
-  ' ': Intent.CONFIRM,
+  ' ': Intent.CONFIRM_SECONDARY,
   Escape: Intent.CANCEL,
+  Backspace: Intent.DESCRIBE,
 });
 
 /**

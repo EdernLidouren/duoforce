@@ -11,7 +11,10 @@
 // Cette classe ne décide PAS comment on se déplace entre les items : c'est le
 // rôle de move(intent), implémentée par les sous-classes (LinearMenu, GridMenu).
 //
-// Modèle d'item : { id: string, label: string }.
+// Modèle d'item : { id: string, label: string, onSecondary?: Function }.
+//   onSecondary(item, index) — action secondaire (Espace / clic droit).
+//   Si absent sur un item, Espace / clic droit ne fait rien sur cet item.
+//
 // Convention d'accessibilité du projet : le focus reste sur le conteneur du menu
 // et l'item actif est annoncé via la live region (pas de focus DOM par item),
 // cohérent avec l'approche « inputs clavier custom + ARIA live ».
@@ -30,6 +33,10 @@ export class AbstractMenu {
    * @param {string} [options.ariaLabel]      Libellé accessible du conteneur.
    * @param {Function} [options.onConfirm]    Callback (item, index) sur confirmation.
    * @param {Function} [options.onCancel]     Callback () sur annulation (Échap).
+   * @param {string}   [options.interfaceName]         Nom court de l'interface (annoncé par Retour-arrière).
+   * @param {string|Function} [options.interfaceDescription]
+   *   Description de l'interface annoncée par Retour-arrière.
+   *   Peut être une fonction () => string pour un contenu dynamique (ex. état d'un sous-menu).
    */
   constructor(options = {}) {
     if (new.target === AbstractMenu) {
@@ -44,6 +51,9 @@ export class AbstractMenu {
 
     this._onConfirm = options.onConfirm ?? null;
     this._onCancel = options.onCancel ?? null;
+
+    this._interfaceName = options.interfaceName ?? '';
+    this._interfaceDescription = options.interfaceDescription ?? null;
 
     this.activeIndex = 0;
     this._root = null;       // élément racine du menu
@@ -125,7 +135,7 @@ export class AbstractMenu {
     }
   }
 
-  /** Déclenche la confirmation sur l'item actif. */
+  /** Déclenche la confirmation primaire (Entrée / clic gauche) sur l'item actif. */
   confirm() {
     const item = this.items[this.activeIndex];
     if (item) this.onConfirm(item, this.activeIndex);
@@ -141,9 +151,31 @@ export class AbstractMenu {
     if (this._onConfirm) this._onConfirm(item, index);
   }
 
+  /**
+   * Déclenche l'action secondaire (Espace / clic droit) sur l'item actif.
+   * Invoque item.onSecondary si défini ; ne fait rien sinon.
+   */
+  confirmSecondary() {
+    const item = this.items[this.activeIndex];
+    if (item?.onSecondary) item.onSecondary(item, this.activeIndex);
+  }
+
   /** Réaction par défaut à l'annulation : invoque le callback fourni. */
   onCancel() {
     if (this._onCancel) this._onCancel();
+  }
+
+  /**
+   * Annonce le nom et la description de cette interface via la région ARIA live.
+   * Déclenché par Retour-arrière (Intent.DESCRIBE).
+   * La description peut être statique (string) ou dynamique (Function → string).
+   */
+  describeInterface() {
+    const name = this._interfaceName;
+    const raw = this._interfaceDescription;
+    const desc = typeof raw === 'function' ? raw() : (raw ?? '');
+    const text = name && desc ? `${name} : ${desc}` : (name || desc);
+    if (text && this.announce) this.announce.polite(text);
   }
 
   // --- Interne ---------------------------------------------------------------
@@ -154,8 +186,16 @@ export class AbstractMenu {
       this.confirm();
       return;
     }
+    if (intent === Intent.CONFIRM_SECONDARY) {
+      this.confirmSecondary();
+      return;
+    }
     if (intent === Intent.CANCEL) {
       this.onCancel();
+      return;
+    }
+    if (intent === Intent.DESCRIBE) {
+      this.describeInterface();
       return;
     }
     // Navigation « liste » mutualisée (cyclage, Origine/Fin, bords) si la
@@ -216,10 +256,16 @@ export class AbstractMenu {
       li.setAttribute('role', 'menuitem');
       li.dataset.id = item.id;
       li.textContent = item.label;
-      // Bonus souris : cliquer sélectionne puis confirme l'item.
+      // Clic gauche : sélectionne puis action primaire.
       li.addEventListener('click', () => {
         this.setActive(i, { silent: true });
         this.confirm();
+      });
+      // Clic droit : sélectionne puis action secondaire.
+      li.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.setActive(i, { silent: true });
+        this.confirmSecondary();
       });
       list.append(li);
       return li;

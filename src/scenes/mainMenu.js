@@ -16,6 +16,7 @@
 // conteneur racine et de réagir aux confirmations.
 
 import { LinearMenu } from '../ui/menus/LinearMenu.js';
+import { SubMenu } from '../ui/menus/SubMenu.js';
 
 /** Identifiants stables des choix (découplés des libellés traduits). */
 export const MainMenuChoice = Object.freeze({
@@ -23,6 +24,9 @@ export const MainMenuChoice = Object.freeze({
   OPTIONS: 'options',
   QUIT: 'quit',
   COMBAT_TEST: 'combat-test',
+  SUBMENU_TEST_INFO:   'submenu-test-info',
+  SUBMENU_TEST_SINGLE: 'submenu-test-single',
+  SUBMENU_TEST_MULTI:  'submenu-test-multi',
 });
 
 /**
@@ -30,47 +34,118 @@ export const MainMenuChoice = Object.freeze({
  * @returns {{ mount: Function, unmount: Function }}
  */
 export function createMainMenuScene() {
-  let menu = null;
+  let activeMenu = null; // LinearMenu principal ou SubMenu courant
 
   return {
     mount(context) {
       const { root, announce, strings, debug } = context;
+      mountMainMenu();
 
-      const items = [
-        { id: MainMenuChoice.NEW_GAME, label: strings?.menu?.start ?? 'Nouvelle partie' },
-        { id: MainMenuChoice.OPTIONS, label: strings?.menu?.options ?? 'Options' },
-        { id: MainMenuChoice.QUIT, label: strings?.menu?.quit ?? 'Quitter' },
-      ];
+      function mountMainMenu() {
+        if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
 
-      // Option de développement : visible uniquement si debug activé.
-      if (debug?.enabled && debug?.showTestCombat) {
-        items.push({ id: MainMenuChoice.COMBAT_TEST, label: strings?.menu?.combatTest ?? 'Combat test' });
+        const items = [
+          { id: MainMenuChoice.NEW_GAME, label: strings?.menu?.start ?? 'Nouvelle partie' },
+          { id: MainMenuChoice.OPTIONS,  label: strings?.menu?.options ?? 'Options' },
+          { id: MainMenuChoice.QUIT,     label: strings?.menu?.quit ?? 'Quitter' },
+        ];
+
+        if (debug?.enabled && debug?.showTestCombat) {
+          const sm = strings?.submenu ?? {};
+          items.push({ id: MainMenuChoice.COMBAT_TEST,        label: strings?.menu?.combatTest ?? 'Combat test' });
+          items.push({ id: MainMenuChoice.SUBMENU_TEST_INFO,   label: sm.testInfoTitle   ?? 'Test sous-menu informatif' });
+          items.push({ id: MainMenuChoice.SUBMENU_TEST_SINGLE, label: sm.testSingleTitle ?? 'Test sous-menu choix unique' });
+          items.push({ id: MainMenuChoice.SUBMENU_TEST_MULTI,  label: sm.testMultiTitle  ?? 'Test sous-menu choix multiples' });
+        }
+
+        activeMenu = new LinearMenu({
+          container: root,
+          announce,
+          orientation: 'vertical',
+          title: strings?.menu?.title ?? 'Duoforce',
+          ariaLabel: strings?.menu?.label ?? 'Menu principal',
+          interfaceName: strings?.menu?.title ?? 'Duoforce',
+          interfaceDescription: strings?.menu?.label ?? 'Menu principal',
+          items,
+          onConfirm: (item) => handleMainChoice(item.id),
+        });
+        activeMenu.mount();
       }
 
-      menu = new LinearMenu({
-        container: root,
-        announce,
-        orientation: 'vertical',
-        title: strings?.menu?.title ?? 'Duoforce',
-        ariaLabel: strings?.menu?.label ?? 'Menu principal',
-        items,
-        onConfirm: (item) => {
-          if (item.id === MainMenuChoice.COMBAT_TEST) {
-            context.router.go('combat');
-            return;
-          }
-          // Stubs : pas de logique derrière les autres boutons pour l'instant.
-          // TODO: NEW_GAME → context.router.go('game') ; OPTIONS → scène options ; QUIT → …
-          console.log('[mainMenu] choix sélectionné :', item.id);
-        },
-      });
+      function handleMainChoice(id) {
+        if (id === MainMenuChoice.COMBAT_TEST) {
+          context.router.go('combat');
+          return;
+        }
+        if (id === MainMenuChoice.SUBMENU_TEST_INFO) {
+          openTestSubMenu('informative');
+          return;
+        }
+        if (id === MainMenuChoice.SUBMENU_TEST_SINGLE) {
+          openTestSubMenu('single_choice');
+          return;
+        }
+        if (id === MainMenuChoice.SUBMENU_TEST_MULTI) {
+          openTestSubMenu('multiple_choice');
+          return;
+        }
+        // Stubs.
+        console.log('[mainMenu] choix sélectionné :', id);
+      }
 
-      menu.mount();
+      function openTestSubMenu(mode) {
+        if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
+
+        const sm = strings?.submenu ?? {};
+        const testItems = [
+          { id: 'a', label: sm.testItemA ?? 'Option Alpha' },
+          { id: 'b', label: sm.testItemB ?? 'Option Bêta' },
+          { id: 'c', label: sm.testItemC ?? 'Option Gamma' },
+          { id: 'd', label: sm.testItemD ?? 'Option Delta' },
+          { id: 'e', label: sm.testItemE ?? 'Option Epsilon' },
+        ];
+
+        const titles = {
+          informative:     sm.testInfoTitle   ?? 'Sous-menu informatif',
+          single_choice:   sm.testSingleTitle ?? 'Sous-menu choix unique',
+          multiple_choice: sm.testMultiTitle  ?? 'Sous-menu choix multiples',
+        };
+        const descs = {
+          informative:     sm.testInfoDesc   ?? 'Navigation seule.',
+          single_choice:   sm.testSingleDesc ?? 'Sélectionne et ferme.',
+          multiple_choice: sm.testMultiDesc  ?? 'Cochez entre 1 et 3 options.',
+        };
+
+        activeMenu = new SubMenu({
+          container: root,
+          announce,
+          strings,
+          mode,
+          min: mode === 'multiple_choice' ? 1 : 0,
+          max: mode === 'multiple_choice' ? 3 : Infinity,
+          items: testItems,
+          title: titles[mode],
+          ariaLabel: titles[mode],
+          interfaceName: titles[mode],
+          interfaceDescription: descs[mode],
+          closeLabel: sm.close ?? 'Fermer',
+          onClose: () => mountMainMenu(),
+          onConfirm: (result) => {
+            const label = Array.isArray(result)
+              ? result.map((r) => r.item.label).join(', ')
+              : result.label;
+            console.log('[mainMenu] sous-menu confirmé :', label);
+            announce.polite(`${sm.testDone ?? 'Confirmé :'} ${label}`);
+          },
+        });
+        activeMenu.mount();
+      }
     },
+
     unmount() {
-      if (menu) {
-        menu.unmount();
-        menu = null;
+      if (activeMenu) {
+        activeMenu.unmount();
+        activeMenu = null;
       }
     },
   };

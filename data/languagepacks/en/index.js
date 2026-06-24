@@ -346,6 +346,30 @@ export default {
     selectedSource: 'Selected',
   },
 
+  submenu: {
+    close:                'Close',
+    validate:             'Confirm',
+    selected:             'Selected',
+    deselected:           'Deselected',
+    refuseMax:            'Maximum reached ({max}).',
+    refuseMin:            'Select at least {min} option(s) to confirm.',
+    descriptionCount:     '{count}/{max} selection(s)',
+    descriptionCountRange: '{count} selection(s) (min {min}, max {max})',
+    // Debug test labels.
+    testInfoTitle:    'Informative submenu',
+    testInfoDesc:     'Three items, navigation only.',
+    testSingleTitle:  'Single-choice submenu',
+    testSingleDesc:   'Select one and close.',
+    testMultiTitle:   'Multiple-choice submenu',
+    testMultiDesc:    'Check between 1 and 3 options.',
+    testItemA: 'Option Alpha',
+    testItemB: 'Option Beta',
+    testItemC: 'Option Gamma',
+    testItemD: 'Option Delta',
+    testItemE: 'Option Epsilon',
+    testDone:  'Confirmed:',
+  },
+
   strategy: {
     no_points:     'You have no strategies left.',
     empty:         'No power in this area.',

@@ -355,6 +355,31 @@ export default {
     selectedSource: 'Sélectionné',
   },
 
+  submenu: {
+    close:                'Fermer',
+    validate:             'Valider',
+    selected:             'Sélectionné',
+    deselected:           'Désélectionné',
+    refuseMax:            'Maximum atteint ({max}).',
+    refuseMin:            'Sélectionnez au moins {min} option(s) pour valider.',
+    descriptionCount:     '{count}/{max} sélection(s)',
+    descriptionCountRange: '{count} sélection(s) (min {min}, max {max})',
+    // Noms des tests (debug uniquement).
+    testInfoTitle:    'Sous-menu informatif',
+    testInfoDesc:     'Trois informations, navigation seule.',
+    testSingleTitle:  'Sous-menu choix unique',
+    testSingleDesc:   'Sélectionne et ferme.',
+    testMultiTitle:   'Sous-menu choix multiples',
+    testMultiDesc:    'Cochez entre 1 et 3 options.',
+    // Libellés d'items bidon pour les tests.
+    testItemA: 'Option Alpha',
+    testItemB: 'Option Bêta',
+    testItemC: 'Option Gamma',
+    testItemD: 'Option Delta',
+    testItemE: 'Option Epsilon',
+    testDone:  'Choix confirmé :',
+  },
+
   strategy: {
     no_points:    "Vous n'avez plus de stratégies.",
     empty:        'Aucun pouvoir dans cette zone.',
