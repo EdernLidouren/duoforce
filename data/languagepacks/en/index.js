@@ -423,6 +423,32 @@ export default {
     powersClose: 'Close',
   },
 
+  // Run hub — Secret base.
+  runHub: {
+    title:                'Secret base',
+    label:                'Secret base',
+    name:                 'Secret base',
+    interfaceDescription: 'Preparing for day {round}, {type} mission',
+    missionRecon:         'reconnaissance',
+    missionIntervention:  'intervention',
+    missionElimination:   'elimination',
+    statusDuo:            '{hero1} and {hero2}: {hp} out of {maxHp} HP, {powers} powers.',
+    shopEntry:            'Upgrades ({credit} credit): Buy gadgets, recruit sidekicks, and unlock perks.',
+    launchEntry:          'Launch {type} mission against {enemy}.',
+    launchEntryFull:      'Launch {type} mission against {enemy}: {description}',
+    quit:                 'Back to main menu',
+    announceHp:           '{hp} out of {maxHp} HP',
+    announceCredit:       '{credit} credit',
+    announceThreat:       '{enemy}: {type}, day {round}',
+  },
+
+  // Short enemy descriptions (id → description).
+  enemyDescriptions: {
+    enemy_gros_bras: 'A tough henchman. High endurance, moderate attack.',
+    enemy_caid:      'A seasoned lieutenant. Combat-tested with solid resistance.',
+    enemy_nemesis:   'The boss. Exceptional endurance and attack power.',
+  },
+
   // Short hero descriptions (id → description).
   heroDescriptions: {
     hero_paladium: 'Defensive hero. High resistance and close-range damage.',

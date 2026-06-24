@@ -18,6 +18,7 @@ import { loadLanguagePack, DEFAULT_LANG } from './data/languagepacks/index.js';
 
 import { createMainMenuScene } from './src/scenes/mainMenu.js';
 import { createNewGameScene }  from './src/scenes/newGame.js';
+import { createRunHubScene }   from './src/scenes/runHub.js';
 import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
@@ -44,9 +45,10 @@ async function bootstrap() {
   // Enregistrement des scènes (clé → objet { mount, unmount }).
   router.register('menu',     createMainMenuScene());
   router.register('new-game', createNewGameScene());
+  router.register('run-hub',  createRunHubScene());
   router.register('game',     createGameScene());
   router.register('gameover', createGameOverScene());
-  router.register('combat', createCombatScene());
+  router.register('combat',   createCombatScene());
 
   // Navigation initiale.
   router.go('menu');

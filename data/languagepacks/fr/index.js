@@ -1,4 +1,4 @@
-// data/languagepacks/fr/index.js — Pack de langue : français.
+﻿// data/languagepacks/fr/index.js — Pack de langue : français.
 //
 // Structure commune à tous les packs (voir ../en/index.js pour l'équivalent).
 // Conventions de localisation :
@@ -310,10 +310,10 @@ export default {
 
   // Noms des ennemis (indexés par nameId).
   enemies: {
-    enemy_dummy:     ‘Mannequin d\’entraînement’,
-    enemy_gros_bras: ‘Gros bras’,
-    enemy_caid:      ‘Caïd’,
-    enemy_nemesis:   ‘Némésis’,
+    enemy_dummy:     "Mannequin d'entraînement",
+    enemy_gros_bras: "Gros bras",
+    enemy_caid:      "Caïd",
+    enemy_nemesis:   "Némésis",
   },
 
   game: {
@@ -431,6 +431,32 @@ export default {
     powersTitle: 'Pouvoirs de départ',
     powerEntry:  '{name} × {count} : {description}',
     powersClose: 'Fermer',
+  },
+
+  // Hub de run — Base secrète.
+  runHub: {
+    title:                 'Base secrète',
+    label:                 'Base secrète',
+    name:                  'Base secrète',
+    interfaceDescription:  'Préparation pour le jour {round}, mission {type}',
+    missionRecon:          'reconnaissance',
+    missionIntervention:   'intervention',
+    missionElimination:    'élimination',
+    statusDuo:             '{hero1} et {hero2} : {hp} sur {maxHp} PV, {powers} pouvoirs.',
+    shopEntry:             'Améliorations ({credit} crédit) : Acheter des gadgets, recruter des side-kicks et débloquer des atouts.',
+    launchEntry:           'Lancer la mission {type} contre {enemy}.',
+    launchEntryFull:       'Lancer la mission {type} contre {enemy} : {description}',
+    quit:                  'Retour au menu principal',
+    announceHp:            '{hp} sur {maxHp} PV',
+    announceCredit:        '{credit} crédit',
+    announceThreat:        '{enemy} : {type}, jour {round}',
+  },
+
+  // Descriptions courtes des ennemis (id → description).
+  enemyDescriptions: {
+    enemy_gros_bras: 'Un sbire robuste. Endurance élevée, attaque modeste.',
+    enemy_caid:      'Un lieutenant aguerri. Combat confirmé et résistance solide.',
+    enemy_nemesis:   'Le boss. Endurance et puissance d\'attaque hors normes.',
   },
 
   // Descriptions courtes des héros (id → description).

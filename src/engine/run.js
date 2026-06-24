@@ -18,6 +18,7 @@
 
 import { STARTING_CREDIT } from './gameState.js';
 import { getHeroById } from '../data/heroes/index.js';
+import { getEnemyById } from '../data/enemies/index.js';
 import { GAME_VERSION, SAVE_FORMAT_VERSION } from '../config/version.js';
 import { debug } from '../config/debug.js';
 
@@ -70,6 +71,18 @@ export function getEnemyId(seed, combatIndex) {
  */
 export function getCurrentEnemyId(run) {
   return getEnemyId(run.seed, getCombatIndex(run));
+}
+
+/**
+ * Retourne l'objet ennemi complet du combat courant.
+ * Façade de haut niveau : les scènes n'ont pas à connaître le mécanisme de seed
+ * ni le catalogue d'ennemis.
+ *
+ * @param {object} run
+ * @returns {object}  objet ennemi (id, nameId, hp, attack, defense)
+ */
+export function getNextEnemy(run) {
+  return getEnemyById(getCurrentEnemyId(run));
 }
 
 // --- Index de combat linéaire ------------------------------------------------

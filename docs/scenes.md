@@ -79,6 +79,46 @@ Closing returns to the hero detail.
 
 ---
 
+## `run-hub` — Hub de run : Base secrète (`src/scenes/runHub.js`)
+
+Scène d'arrivée après création ou chargement d'une partie.  
+Affiche l'état du duo, les options inter-combats et la prochaine mission.  
+**Point de sauvegarde** : `serialize(run)` est appelé à chaque montage → `localStorage['duoforce_save']`.
+
+### Vocabulaire joueur
+
+| Terme interne | Présentation joueur |
+|---|---|
+| `round` (1–10) | **Jour** |
+| `phase` 1 | **Mission de reconnaissance** |
+| `phase` 2 | **Mission d'intervention** |
+| `phase` 3 | **Mission d'élimination** |
+
+### Entrées du menu
+
+| Item | Interactivité | Contenu |
+|---|---|---|
+| Statut duo | informatif | `{hero1} et {hero2} : {hp}/{maxHp} PV, {powers} pouvoirs.` |
+| Améliorations | informatif (shop à brancher) | `Améliorations ({credit} crédit) : …` |
+| Lancer la mission | informatif (combat à brancher) | `Lancer la mission {type} contre {ennemi} : {description}` |
+| Retour au menu principal | **interactif** | Vide `ctx.run`, navigue vers `menu` |
+
+L'ennemi courant est obtenu via `getNextEnemy(run)` — le hub ne connaît pas le mécanisme de seed.
+
+### Raccourcis clavier (système `keybindings.js`)
+
+| Touche | Action |
+|---|---|
+| `v` | Annonce PV courants / max |
+| `c` | Annonce le crédit |
+| `t` | Annonce `{ennemi} : {type}, jour {round}` |
+
+### Identité de l'interface (Retour-arrière)
+
+`Base secrète : Préparation pour le jour {round}, mission {type}`
+
+---
+
 ## `combat` — Test combat (`src/scenes/combat.js`)
 
 Debug scene. Initializes a combat with two fixed heroes (Paladium + Mindel) and a dummy enemy.  

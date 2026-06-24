@@ -290,10 +290,7 @@ export function createNewGameScene() {
     // Stocker la run dans le contexte pour les scènes suivantes.
     ctx.run = run;
 
-    // TODO : router.go('run') quand la scène de run/intercombat existera.
-    // Placeholder : la scène de combat test utilise ses propres héros (HEROES)
-    // et ignore ctx.run pour l'instant.
-    ctx.router.go('combat');
+    ctx.router.go('run-hub');
   }
 
   // --- Scène (interface publique) ------------------------------------------------
