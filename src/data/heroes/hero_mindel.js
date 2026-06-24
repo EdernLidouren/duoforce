@@ -5,6 +5,7 @@
 export const hero_mindel = {
   id: 'hero_mindel',
   nameId: 'hero_mindel',
+  hp: 15,
   starting_powers: [
     'arctic_veil_power',
     'snow_dance_power',

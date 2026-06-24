@@ -42,8 +42,8 @@ export function createMainMenuScene() {
         { id: MainMenuChoice.QUIT, label: strings?.menu?.quit ?? 'Quitter' },
       ];
 
-      // Option de développement : visible uniquement quand DEBUG est actif.
-      if (debug) {
+      // Option de développement : visible uniquement si debug activé.
+      if (debug?.enabled && debug?.showTestCombat) {
         items.push({ id: MainMenuChoice.COMBAT_TEST, label: strings?.menu?.combatTest ?? 'Combat test' });
       }
 

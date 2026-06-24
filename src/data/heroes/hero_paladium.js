@@ -5,6 +5,7 @@
 export const hero_paladium = {
   id: 'hero_paladium',
   nameId: 'hero_paladium',
+  hp: 15,
   starting_powers: [
     'iron_will_power',
     'impregnable_power',

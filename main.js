@@ -20,10 +20,7 @@ import { createMainMenuScene } from './src/scenes/mainMenu.js';
 import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
-
-// Drapeau de développement : active les options de debug (ex. « Combat test »
-// dans le menu principal). Passer à false pour une build « propre ».
-const DEBUG = true;
+import { debug } from './src/config/debug.js';
 
 async function bootstrap() {
   const root = document.getElementById('app');
@@ -38,7 +35,7 @@ async function bootstrap() {
   // Contexte partagé passé à mount() de chaque scène.
   // Les scènes l'utilisent pour : rendre dans `root`, annoncer via `announce`,
   // lire les libellés via `strings`, et naviguer via `router.go(name)`.
-  const context = { root, announce, strings, debug: DEBUG, router: null };
+  const context = { root, announce, strings, debug, router: null };
 
   const router = createRouter(context);
   context.router = router; // permet aux scènes d'appeler context.router.go(...)
