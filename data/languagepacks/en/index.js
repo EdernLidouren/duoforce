@@ -443,6 +443,19 @@ export default {
     announceHp:           '{hp} out of {maxHp} HP',
     announceCredit:       '{credit} credit',
     announceThreat:       '{enemy}: {type}, day {round}',
+    // Duo menu
+    duoMenuTitle:         'Duo {hero1} and {hero2}',
+    duoMenuDescription:   'Day {round}.',
+    duoHp:                '{hp} out of {maxHp} HP.',
+    duoPowers:            '{count} powers in the deck.',
+    duoBack:              'Back.',
+    // Deck menu
+    deckTitle:            '{count} powers',
+    deckDescription:      'Displays all powers currently mastered by your duo.',
+    deckEntry:            '{name}: {description}',
+    // Power detail
+    powerType:            'Type: {type}',
+    powerRarity:          'Rarity: {rarity}',
   },
 
   // Short enemy descriptions (id → description).

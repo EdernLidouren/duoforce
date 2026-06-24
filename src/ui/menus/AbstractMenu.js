@@ -55,7 +55,7 @@ export class AbstractMenu {
     this._interfaceName = options.interfaceName ?? '';
     this._interfaceDescription = options.interfaceDescription ?? null;
 
-    this.activeIndex = 0;
+    this.activeIndex = options.initialIndex ?? 0;
     this._root = null;       // élément racine du menu
     this._itemEls = [];      // éléments DOM des items, indexés comme this.items
     this._detachInput = null;
@@ -91,7 +91,15 @@ export class AbstractMenu {
     this.container.append(this._root);
     this._detachInput = attachInput(this._root, (intent) => this._handleIntent(intent));
     this._root.focus();
-    this.setActive(this.activeIndex);
+    // Bound activeIndex to actual item array (SubMenu appends extra items after construction).
+    const idx = Math.min(this.activeIndex, this.items.length - 1);
+    const item = this.items[Math.max(0, idx)];
+    if (item && this.announce && this.title) {
+      this.announce.polite(`${this.title} : ${item.label}`);
+      this.setActive(Math.max(0, idx), { silent: true });
+    } else {
+      this.setActive(this.activeIndex);
+    }
   }
 
   /** Débranche le clavier et retire le DOM du menu. */

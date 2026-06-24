@@ -409,7 +409,7 @@ export default {
     title:              'Nouvelle partie',
     label:              'Configuration de la partie',
     interfaceName:      'Configuration',
-    seed:               'Graine : {seed}',
+    seed:               'Seed : {seed}',
     hero1:              'Premier héros : {name}',
     hero2:              'Second héros : {name}',
     noneHero:           'Aucun',
@@ -453,6 +453,19 @@ export default {
     announceHp:            '{hp} sur {maxHp} PV',
     announceCredit:        '{credit} crédit',
     announceThreat:        '{enemy} : {type}, jour {round}',
+    // Menu duo
+    duoMenuTitle:          'Duo {hero1} et {hero2}',
+    duoMenuDescription:    'Jour {round}.',
+    duoHp:                 '{hp} sur {maxHp} PV.',
+    duoPowers:             '{count} pouvoirs dans le deck.',
+    duoBack:               'Retour.',
+    // Menu deck
+    deckTitle:             '{count} pouvoirs',
+    deckDescription:       "Affiche l'ensemble des pouvoirs actuellement maîtrisés par votre duo.",
+    deckEntry:             '{name} : {description}',
+    // Détail d'un pouvoir
+    powerType:             'Type : {type}',
+    powerRarity:           'Rareté : {rarity}',
   },
 
   // Descriptions courtes des ennemis (id → description).
