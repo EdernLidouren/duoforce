@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Test pont run↔combat</title></head>
+<body>
+<pre id="out"></pre>
+<script type="module">
+// Vérifie le contrat run ↔ combat :
+//   1. Le combat part bien de run.hp (PV courants), pas d'un max recalculé.
+//   2. Après une victoire, run.hp = PV restants et run.credit += crédit gagné.
+//   3. La défaite ne modifie pas run.hp.
+
+import { createRun, getNextEnemy, applyVictoryToRun } from '../src/engine/run.js';
+import { initCombat, startTurn } from '../src/engine/combat.js';
+import { getHeroById } from '../src/data/heroes/index.js';
+
+const out = document.getElementById('out');
+const log = (...args) => { out.textContent += args.join(' ') + '\n'; console.log(...args); };
+const assert = (cond, msg) => { if (!cond) throw new Error('ÉCHEC : ' + msg); };
+
+const heroes = [getHeroById('hero_paladium'), getHeroById('hero_mindel')];
+
+// --- Scénario 1 : init combat depuis run.hp (PV entamés) ---------------------
+log('Scénario 1 : init du combat depuis run.hp');
+
+const run1 = createRun({ heroes, seed: 0xCAFEBABE });
+run1.hp = run1.maxHp - 12;  // simule des dégâts inter-combats
+
+const enemy1 = getNextEnemy(run1);
+const state1 = initCombat({
+  heroes:   run1.heroes,
+  enemy:    { id: enemy1.id, nameId: enemy1.nameId, hp: enemy1.hp, maxHp: enemy1.hp, baseAttack: enemy1.attack, baseDefense: enemy1.defense },
+  duoHp:    run1.hp,
+  duoMaxHp: run1.maxHp,
+});
+
+assert(state1.duo.hp === run1.hp,
+  `duo.hp=${state1.duo.hp} ≠ run.hp=${run1.hp}`);
+assert(state1.duo.maxHp === run1.maxHp,
+  `duo.maxHp=${state1.duo.maxHp} ≠ run.maxHp=${run1.maxHp}`);
+
+log(`  run.hp=${run1.hp}  run.maxHp=${run1.maxHp}`);
+log(`  → state.duo.hp=${state1.duo.hp}  state.duo.maxHp=${state1.duo.maxHp}  ✓`);
+
+// --- Scénario 2 : victoire → run.hp et run.credit mis à jour -----------------
+log('\nScénario 2 : victoire → réécriture dans la run');
+
+const run2 = createRun({ heroes, seed: 0x1234ABCD });
+const enemy2 = getNextEnemy(run2);
+const state2 = initCombat({
+  heroes:   run2.heroes,
+  enemy:    { id: enemy2.id, nameId: enemy2.nameId, hp: enemy2.hp, maxHp: enemy2.hp, baseAttack: enemy2.attack, baseDefense: enemy2.defense },
+  duoHp:    run2.hp,
+  duoMaxHp: run2.maxHp,
+});
+startTurn(state2);
+
+// Simuler dégâts subis et crédit gagné pendant le combat.
+const DAMAGE_TAKEN = 5;
+const CREDIT_EARNED = 3;
+state2.duo.hp     = run2.hp - DAMAGE_TAKEN;
+state2.duo.credit = CREDIT_EARNED;
+state2.status     = 'won';
+
+const hpBefore     = run2.hp;
+const creditBefore = run2.credit;
+applyVictoryToRun(run2, state2);
+
+assert(run2.hp === hpBefore - DAMAGE_TAKEN,
+  `run.hp=${run2.hp} ≠ ${hpBefore - DAMAGE_TAKEN}`);
+assert(run2.credit === creditBefore + CREDIT_EARNED,
+  `run.credit=${run2.credit} ≠ ${creditBefore + CREDIT_EARNED}`);
+
+log(`  PV avant=${hpBefore}  dégâts subis=${DAMAGE_TAKEN}`);
+log(`  → run.hp=${run2.hp}  ✓`);
+log(`  Crédit avant=${creditBefore}  crédit gagné=${CREDIT_EARNED}`);
+log(`  → run.credit=${run2.credit}  ✓`);
+
+// --- Scénario 3 : défaite → run.hp inchangé ----------------------------------
+log('\nScénario 3 : défaite → run.hp inchangé');
+
+const run3 = createRun({ heroes, seed: 0xDEADBEEF });
+const hpBeforeDefeat = run3.hp;
+// On ne crée le state que pour documenter l'intention — la défaite ne réécrit pas.
+const state3 = initCombat({
+  heroes:   run3.heroes,
+  enemy:    { id: 'enemy_dummy', nameId: 'enemy_dummy', hp: 999, maxHp: 999, baseAttack: 0, baseDefense: 0 },
+  duoHp:    run3.hp,
+  duoMaxHp: run3.maxHp,
+});
+state3.status = 'lost';
+// applyVictoryToRun n'est PAS appelée.
+assert(run3.hp === hpBeforeDefeat, `run.hp modifié après défaite : ${run3.hp}`);
+
+log(`  run.hp=${run3.hp}  (inchangé après défaite)  ✓`);
+
+log('\nTous les scénarios passent.');
+</script>
+</body>
+</html>

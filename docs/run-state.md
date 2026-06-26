@@ -44,6 +44,16 @@ starts, discarded when it ends.
 - Writes back to the run on resolution (remaining HP, earned credits)
 - The run never knows the internal detail of an ongoing combat
 
+**Implemented boundary (`src/engine/run.js`):**
+
+| Direction | What | How |
+|-----------|------|-----|
+| Run → Combat (init) | `run.heroes`, `run.hp`, `run.maxHp`, enemy via `getNextEnemy(run)` | `initCombat({ heroes, enemy, duoHp: run.hp, duoMaxHp: run.maxHp })` |
+| Combat → Run (victory only) | `state.duo.hp` → `run.hp` ; `state.duo.credit` added to `run.credit` | `applyVictoryToRun(run, combatState)` |
+| Defeat | `run.hp` is **not** modified | `applyVictoryToRun` is not called |
+
+`advancePhase` is not called here; it is the responsibility of the post-victory scene.
+
 ### Flow rule
 
 ```

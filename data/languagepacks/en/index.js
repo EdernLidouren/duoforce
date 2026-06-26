@@ -18,7 +18,10 @@ export default {
     testRun:  'Test run',
     options:  'Options',
     quit:     'Quit',
-    combatTest: 'Test combat',
+    saveManager:      'Save management',
+    abandonQuestion:  'Your current run will be permanently lost. Abandon?',
+    combatTest:       'Test combat',
+    confirmTest:      'Confirmation test',
   },
 
   combat: {
@@ -456,6 +459,51 @@ export default {
     // Power detail
     powerType:            'Type: {type}',
     powerRarity:          'Rarity: {rarity}',
+  },
+
+  // Combat victory scene.
+  victory: {
+    title:         'Mission complete',
+    message:       'Mission complete.',
+    hpRemaining:   '{hp} out of {maxHp} HP remaining.',
+    creditsEarned: '{credits} credit(s) earned.',
+    continue:      'Continue.',
+  },
+
+  // Save management scene.
+  saveManager: {
+    title:                'Save management',
+    label:                'Save management',
+    dateLabel:            'Save creation date: ',
+    textareaLabel:        'Save content',
+    exportBtn:            'Export',
+    importBtn:            'Import',
+    back:                 'Back',
+    exported:             'Save exported to the content field.',
+    importQuestion:       'Importing will replace the current save (active run, unlocks and statistics). Do you confirm?',
+    importSuccess:        'Save imported successfully.',
+    importError:          'Error: invalid or corrupted content. Save unchanged.',
+    importVersionMismatch: 'Incompatible format (version {v}). Save unchanged.',
+    resetBtn:      'Reset',
+    resetQuestion: 'All data (active run, statistics, unlocks) will be permanently erased. Reset?',
+    resetSuccess:  'Profile reset.',
+  },
+
+  // Generic confirmation scene.
+  confirm: {
+    title:        'Confirmation',
+    yes:          'Yes',
+    no:           'No',
+    // Labels for debug test (main menu).
+    testTitle:    'Confirmation test',
+    testQuestion: 'This is a fake test question. Do you confirm?',
+  },
+
+  // Run-won placeholder.
+  runWon: {
+    title:      'Run complete',
+    message:    'Congratulations! You defeated the final boss.',
+    backToMenu: 'Back to main menu.',
   },
 
   // Short enemy descriptions (id → description).

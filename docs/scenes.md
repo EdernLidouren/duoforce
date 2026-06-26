@@ -119,6 +119,49 @@ L'ennemi courant est obtenu via `getNextEnemy(run)` — le hub ne connaît pas l
 
 ---
 
+## `victory` — Victoire de combat (`src/scenes/victory.js`)
+
+Scène transitoire affichée après chaque combat gagné, avant le retour au hub.
+
+### Entrée
+
+- `context.run` — PV du duo déjà mis à jour (`applyVictoryToRun` déjà appelé dans la scène combat).
+- `context.lastVictory.creditsEarned` — crédits gagnés pendant ce combat (0 si aucun).
+
+### Contenu (LinearMenu)
+
+| Item | Condition | Comportement |
+|---|---|---|
+| Message de victoire | toujours | informatif |
+| PV restants `{hp}/{maxHp}` | toujours | informatif |
+| Crédits gagnés `{credits}` | si > 0 | informatif |
+| **Continuer** | toujours | interactif → avance la progression |
+
+Un emplacement commenté réserve la place pour un futur choix de récompense (cartes, gadgets, atouts) entre les items informatifs et « Continuer ».
+
+### Action « Continuer »
+
+1. `advancePhase(run)` — avance la progression (phase, puis round si phase > 3).
+2. Si `isRunWon(run)` → `router.go('run-won')`.
+3. Sinon → `router.go('run-hub')` — le hub sauvegarde et affiche le nouvel état.
+
+---
+
+## `run-won` — Fin de run victorieuse (`src/scenes/runWon.js`)
+
+Placeholder affiché quand la run est gagnée (boss du jour 10 vaincu).
+
+### Contenu (LinearMenu)
+
+| Item | Comportement |
+|---|---|
+| Message de félicitations | informatif |
+| Retour au menu principal | `ctx.run = null` puis `router.go('menu')` |
+
+Cette scène sera étoffée ultérieurement (récapitulatif de run, score, déverrouillages).
+
+---
+
 ## `combat` — Test combat (`src/scenes/combat.js`)
 
 Debug scene. Initializes a combat with two fixed heroes (Paladium + Mindel) and a dummy enemy.  

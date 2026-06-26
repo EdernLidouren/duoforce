@@ -15,12 +15,11 @@
 
 import { LinearMenu }  from '../ui/menus/LinearMenu.js';
 import { SubMenu }     from '../ui/menus/SubMenu.js';
-import { getNextEnemy, serialize } from '../engine/run.js';
+import { getNextEnemy } from '../engine/run.js';
+import { saveProfileToLocal } from '../engine/persistence.js';
 import { getPowerById } from '../data/powers/index.js';
 import { matchKeybinding, KEYBINDINGS } from '../ui/keybindings.js';
 import { format } from '../ui/format.js';
-
-const SAVE_KEY = 'duoforce_save';
 
 export function createRunHubScene() {
   let ctx         = null;
@@ -106,7 +105,7 @@ export function createRunHubScene() {
         {
           id: 'status',
           label: format(h.statusDuo ?? '{hero1} et {hero2} : {hp} sur {maxHp} PV, {count} pouvoirs.', {
-            hero1: h1, hero2: h2, hp: run.hp, maxHp: run.maxHp, count,
+            hero1: h1, hero2: h2, hp: run.hp, maxHp: run.maxHp, count, powers: count,
           }),
         },
         {
@@ -120,8 +119,11 @@ export function createRunHubScene() {
       ],
       onConfirm: (item, idx) => {
         if (item.id === 'status') { openDuoMenu(() => mountHub(idx)); return; }
-        if (item.id === 'quit')   { ctx.run = null; ctx.router.go('menu'); }
-        // 'shop' et 'launch' : informatifs pour l'instant.
+        if (item.id === 'launch') { ctx.router.go('combat'); return; }
+        if (item.id === 'quit') {
+          ctx.router.go('menu');
+        }
+        // 'shop' : informatif pour l'instant.
       },
       onCancel: () => { /* pas d'annulation depuis le hub */ },
     }));
@@ -275,20 +277,12 @@ export function createRunHubScene() {
     if (keyHandler) { document.removeEventListener('keydown', keyHandler); keyHandler = null; }
   }
 
-  // --- Sauvegarde ----------------------------------------------------------------
-
-  function saveRun() {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(serialize(ctx.run)));
-    } catch { /* ignore les erreurs de stockage */ }
-  }
-
   // --- Interface publique --------------------------------------------------------
 
   return {
     mount(context) {
       ctx = context;
-      saveRun();
+      saveProfileToLocal(ctx.profile);
       mountHub(0);
       attachKeybindings();
     },

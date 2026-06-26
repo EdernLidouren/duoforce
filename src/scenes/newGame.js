@@ -52,6 +52,12 @@ export function createNewGameScene() {
   let activeMenu = null;
   let ctx        = null;
 
+  // Position du curseur dans le menu de configuration, restaurée à chaque retour.
+  // Mise à jour systématiquement avant toute navigation hors du menu (onConfirm).
+  // Survit à un démontage/remontage via router.go (fermeture de fabrique).
+  // Pattern : _xReturnIdx = idx avant swap/router.go ; mountX() lit _xReturnIdx.
+  let _configReturnIdx = 0;
+
   // État courant de la configuration.
   const config = { seedMode: null, hero1: null, hero2: null };
 
@@ -126,7 +132,8 @@ export function createNewGameScene() {
       interfaceName: s.interfaceName ?? 'Configuration',
       interfaceDescription: () => buildConfigDescription(s),
       items:     buildConfigItems(s),
-      onConfirm: (item) => handleConfigChoice(item.id),
+      initialIndex: _configReturnIdx,
+      onConfirm: (item, idx) => { _configReturnIdx = idx; handleConfigChoice(item.id); },
       onCancel:  () => ctx.router.go('menu'),
     }));
   }
@@ -287,8 +294,8 @@ export function createNewGameScene() {
 
     const run = createRun({ heroes: [config.hero1, config.hero2], seed });
 
-    // Stocker la run dans le contexte pour les scènes suivantes.
     ctx.run = run;
+    ctx.profile.stats.runsStarted++;
 
     ctx.router.go('run-hub');
   }
@@ -298,6 +305,7 @@ export function createNewGameScene() {
   return {
     mount(context) {
       ctx = context;
+      _configReturnIdx = 0; // entrée fraîche : repartir du début
       const s = ctx.strings?.newGame ?? {};
       config.seedMode = { id: 'random', label: s.seedRandom ?? 'Aléatoire' };
       config.hero1    = null;

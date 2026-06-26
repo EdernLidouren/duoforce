@@ -32,6 +32,7 @@ import { STRATEGY_PICK } from '../engine/gameState.js';
 import { createEstimator } from '../engine/estimator.js';
 import { HEROES } from '../data/heroes/index.js';
 import { DUMMY_ENEMY } from '../data/enemies/index.js';
+import { getNextEnemy, applyVictoryToRun } from '../engine/run.js';
 import { KEYBINDINGS, matchKeybinding, matchPositionKey } from '../ui/keybindings.js';
 import { createZoneController } from '../ui/zones.js';
 import { format } from '../ui/format.js';
@@ -754,7 +755,14 @@ export function createCombatScene() {
     if (state.status === 'won') {
       estimator.invalidate();
       updateView();
-      return; // victoire → on s'arrête (pas de tour suivant)
+      if (context.run) {
+        // Victoire run-backed : stocker les crédits gagnés avant réécriture, puis scène victoire.
+        const creditsEarned = state.duo.credit;
+        applyVictoryToRun(context.run, state);
+        context.lastVictory = { creditsEarned };
+        context.router.go('victory');
+      }
+      return;
     }
 
     // 4) Tour suivant.
@@ -788,17 +796,37 @@ export function createCombatScene() {
     mount(ctx) {
       context = ctx;
 
-      state = initCombat({
-        heroes: HEROES.slice(0, 2),
-        enemy: {
-          id: DUMMY_ENEMY.id,
-          nameId: DUMMY_ENEMY.nameId,
-          hp: DUMMY_ENEMY.hp,
-          maxHp: DUMMY_ENEMY.hp,
-          baseAttack: DUMMY_ENEMY.attack,
-          baseDefense: DUMMY_ENEMY.defense,
-        },
-      });
+      const run = ctx.run;
+      if (run) {
+        // Combat run-backed : héros, PV et ennemi lus depuis la run.
+        const enemy = getNextEnemy(run);
+        state = initCombat({
+          heroes:   run.heroes,
+          enemy: {
+            id:          enemy.id,
+            nameId:      enemy.nameId,
+            hp:          enemy.hp,
+            maxHp:       enemy.hp,
+            baseAttack:  enemy.attack,
+            baseDefense: enemy.defense,
+          },
+          duoHp:    run.hp,
+          duoMaxHp: run.maxHp,
+        });
+      } else {
+        // Combat standalone (entrée « Combat test » sans run active).
+        state = initCombat({
+          heroes: HEROES.slice(0, 2),
+          enemy: {
+            id:          DUMMY_ENEMY.id,
+            nameId:      DUMMY_ENEMY.nameId,
+            hp:          DUMMY_ENEMY.hp,
+            maxHp:       DUMMY_ENEMY.hp,
+            baseAttack:  DUMMY_ENEMY.attack,
+            baseDefense: DUMMY_ENEMY.defense,
+          },
+        });
+      }
       startTurn(state);
 
       // Estimateur de résolution : lit le plateau / l'état de combat à la volée.

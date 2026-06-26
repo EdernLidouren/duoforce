@@ -15,10 +15,16 @@
 import { createRouter } from './src/router.js';
 import { createAnnouncer } from './src/ui/announce.js';
 import { loadLanguagePack, DEFAULT_LANG } from './data/languagepacks/index.js';
+import { createProfile } from './src/engine/profile.js';
+import { loadProfileFromLocal } from './src/engine/persistence.js';
 
 import { createMainMenuScene } from './src/scenes/mainMenu.js';
 import { createNewGameScene }  from './src/scenes/newGame.js';
 import { createRunHubScene }   from './src/scenes/runHub.js';
+import { createVictoryScene }  from './src/scenes/victory.js';
+import { createRunWonScene }   from './src/scenes/runWon.js';
+import { createConfirmScene }     from './src/scenes/confirm.js';
+import { createSaveManagerScene } from './src/scenes/saveManager.js';
 import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
@@ -34,10 +40,21 @@ async function bootstrap() {
   // Pack de langue (chaînes UI + messages d'annonce a11y).
   const strings = await loadLanguagePack(DEFAULT_LANG);
 
+  // Profil actif : chargé depuis localStorage si présent, sinon neuf.
+  const profile = loadProfileFromLocal() ?? createProfile();
+
   // Contexte partagé passé à mount() de chaque scène.
   // Les scènes l'utilisent pour : rendre dans `root`, annoncer via `announce`,
   // lire les libellés via `strings`, et naviguer via `router.go(name)`.
-  const context = { root, announce, strings, debug, router: null };
+  // `context.run` est un alias transparent de `context.profile.run` :
+  // toute écriture sur context.run se répercute dans profile.run, et vice-versa.
+  const context = { root, announce, strings, debug, router: null, profile, lastVictory: null, pendingConfirm: null };
+  Object.defineProperty(context, 'run', {
+    get()  { return this.profile.run; },
+    set(v) { this.profile.run = v; },
+    enumerable:   true,
+    configurable: true,
+  });
 
   const router = createRouter(context);
   context.router = router; // permet aux scènes d'appeler context.router.go(...)
@@ -46,9 +63,13 @@ async function bootstrap() {
   router.register('menu',     createMainMenuScene());
   router.register('new-game', createNewGameScene());
   router.register('run-hub',  createRunHubScene());
+  router.register('victory',  createVictoryScene());
+  router.register('run-won',  createRunWonScene());
   router.register('game',     createGameScene());
   router.register('gameover', createGameOverScene());
   router.register('combat',   createCombatScene());
+  router.register('confirm',      createConfirmScene());
+  router.register('save-manager', createSaveManagerScene());
 
   // Navigation initiale.
   router.go('menu');

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Test profil</title></head>
+<body>
+<pre id="out"></pre>
+<script type="module">
+// Vérifie le contrat du profil :
+//   1. Sérialiser → désérialiser préserve profil ET run.
+//   2. Écriture/lecture localStorage round-trip.
+//   3. profile.run = null se sérialise et se recharge correctement.
+//   4. Fin de run (run = null) laisse le reste du profil intact.
+
+import { createProfile, serializeProfile, deserializeProfile } from '../src/engine/profile.js';
+import { saveProfileToLocal, loadProfileFromLocal, hasLocalProfile } from '../src/engine/persistence.js';
+import { createRun } from '../src/engine/run.js';
+import { getHeroById } from '../src/data/heroes/index.js';
+
+const out = document.getElementById('out');
+const log = (...args) => { out.textContent += args.join(' ') + '\n'; console.log(...args); };
+const assert = (cond, msg) => { if (!cond) throw new Error('ÉCHEC : ' + msg); };
+
+const heroes = [getHeroById('hero_paladium'), getHeroById('hero_mindel')];
+
+// --- Scénario 1 : sérialiser → désérialiser avec run ------------------------
+log('Scénario 1 : round-trip sérialisation (profil + run)');
+
+const p1 = createProfile();
+p1.run = createRun({ heroes, seed: 0xABCD1234 });
+p1.metaCurrency = 42;
+p1.unlocks = ['hero_mindel'];
+p1.stats.runsStarted = 3;
+p1.stats.wins = 1;
+
+const saved1  = serializeProfile(p1);
+const loaded1 = deserializeProfile(saved1);
+
+assert(loaded1.metaCurrency === 42, `metaCurrency: ${loaded1.metaCurrency}`);
+assert(loaded1.unlocks.length === 1 && loaded1.unlocks[0] === 'hero_mindel', 'unlocks');
+assert(loaded1.stats.runsStarted === 3, `runsStarted: ${loaded1.stats.runsStarted}`);
+assert(loaded1.stats.wins === 1, `wins: ${loaded1.stats.wins}`);
+assert(loaded1.run !== null, 'run présente après désérialisation');
+assert(loaded1.run.seed === p1.run.seed, `seed: ${loaded1.run.seed}`);
+assert(loaded1.run.hp === p1.run.hp, `hp: ${loaded1.run.hp}`);
+assert(loaded1.run.heroes.length === 2, `heroes: ${loaded1.run.heroes.length}`);
+
+log(`  profil reconstruite : metaCurrency=${loaded1.metaCurrency} ✓`);
+log(`  run reconstruite : seed=0x${loaded1.run.seed.toString(16)} hp=${loaded1.run.hp} ✓`);
+
+// --- Scénario 2 : round-trip localStorage ------------------------------------
+log('\nScénario 2 : round-trip localStorage');
+
+const p2 = createProfile();
+p2.run = createRun({ heroes, seed: 0xDEAD });
+p2.stats.abandons = 5;
+
+saveProfileToLocal(p2);
+assert(hasLocalProfile(), 'hasLocalProfile doit être true après save');
+
+const p2loaded = loadProfileFromLocal();
+assert(p2loaded !== null, 'loadProfileFromLocal retourne un profil');
+assert(p2loaded.stats.abandons === 5, `abandons: ${p2loaded.stats.abandons}`);
+assert(p2loaded.run !== null, 'run présente après reload');
+assert(p2loaded.run.seed === p2.run.seed, `seed préservé: 0x${p2loaded.run.seed.toString(16)}`);
+
+log(`  localStorage écrit et relu correctement ✓`);
+log(`  abandons=${p2loaded.stats.abandons} seed=0x${p2loaded.run.seed.toString(16)} ✓`);
+
+// --- Scénario 3 : profil avec run = null -------------------------------------
+log('\nScénario 3 : profil sans run (run = null)');
+
+const p3 = createProfile();
+assert(p3.run === null, 'run initiale = null');
+
+const saved3  = serializeProfile(p3);
+const loaded3 = deserializeProfile(saved3);
+
+assert(loaded3.run === null, 'run reste null après round-trip');
+log(`  run=null préservé après sérialisation ✓`);
+
+// --- Scénario 4 : fin de run → profil intact, run = null ---------------------
+log('\nScénario 4 : fin de run → profil intact, run = null');
+
+const p4 = createProfile();
+p4.run = createRun({ heroes, seed: 0xCAFE });
+p4.metaCurrency = 10;
+p4.stats.runsStarted = 1;
+
+// Simuler une fin de run (victoire) :
+p4.run = null;
+p4.stats.wins++;
+
+assert(p4.run === null, 'run = null après fin de run');
+assert(p4.stats.wins === 1, `wins incrémenté: ${p4.stats.wins}`);
+assert(p4.metaCurrency === 10, 'metaCurrency intact');
+assert(p4.stats.runsStarted === 1, 'runsStarted intact');
+
+saveProfileToLocal(p4);
+const p4loaded = loadProfileFromLocal();
+assert(p4loaded.run === null, 'run reste null en localStorage');
+assert(p4loaded.stats.wins === 1, `wins en localStorage: ${p4loaded.stats.wins}`);
+assert(p4loaded.metaCurrency === 10, 'metaCurrency en localStorage');
+
+log(`  profil intact après fin de run : run=null wins=${p4loaded.stats.wins} metaCurrency=${p4loaded.metaCurrency} ✓`);
+
+log('\nTous les scénarios passent.');
+</script>
+</body>
+</html>

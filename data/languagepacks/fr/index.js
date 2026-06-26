@@ -20,7 +20,10 @@ export default {
     testRun:  'Partie test',
     options:  'Options',
     quit:     'Quitter',
-    combatTest: 'Combat test',
+    saveManager:      'Gestion de la sauvegarde',
+    abandonQuestion:  'Votre run en cours sera définitivement perdue. Abandonner ?',
+    combatTest:       'Combat test',
+    confirmTest:      'Test confirmation',
   },
 
   combat: {
@@ -466,6 +469,51 @@ export default {
     // Détail d'un pouvoir
     powerType:             'Type : {type}',
     powerRarity:           'Rareté : {rarity}',
+  },
+
+  // Scène de victoire de combat.
+  victory: {
+    title:         'Mission accomplie',
+    message:       'Mission accomplie.',
+    hpRemaining:   '{hp} sur {maxHp} PV restants.',
+    creditsEarned: '{credits} crédit(s) gagné(s).',
+    continue:      'Continuer.',
+  },
+
+  // Scène de gestion de sauvegarde.
+  saveManager: {
+    title:                'Gestion de la sauvegarde',
+    label:                'Gestion de la sauvegarde',
+    dateLabel:            'Date de création de la sauvegarde : ',
+    textareaLabel:        'Contenu de la sauvegarde',
+    exportBtn:            'Exporter',
+    importBtn:            'Importer',
+    back:                 'Retour',
+    exported:             'Sauvegarde exportée dans la zone de contenu.',
+    importQuestion:       "L'import remplacera la sauvegarde actuelle (run en cours, déblocages et statistiques). Confirmez-vous ?",
+    importSuccess:        'Sauvegarde importée avec succès.',
+    importError:          'Erreur : contenu invalide ou corrompu. Sauvegarde inchangée.',
+    importVersionMismatch: 'Format incompatible (version {v}). Sauvegarde inchangée.',
+    resetBtn:      'Réinitialiser',
+    resetQuestion: 'Toutes les données (run en cours, statistiques, déblocages) seront définitivement effacées. Réinitialiser ?',
+    resetSuccess:  'Profil réinitialisé.',
+  },
+
+  // Scène de confirmation générique.
+  confirm: {
+    title:        'Confirmation',
+    yes:          'Oui',
+    no:           'Non',
+    // Libellés du test debug (menu principal).
+    testTitle:    'Test de confirmation',
+    testQuestion: 'Ceci est une fausse question de test. Confirmez-vous ?',
+  },
+
+  // Placeholder de fin de run victorieuse.
+  runWon: {
+    title:      'Partie gagnée',
+    message:    'Félicitations ! Vous avez vaincu le boss final.',
+    backToMenu: 'Retour au menu principal.',
   },
 
   // Descriptions courtes des ennemis (id → description).

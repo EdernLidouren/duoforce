@@ -99,6 +99,23 @@ export function getCombatIndex(run) {
   return (round - 1) * 3 + phase;
 }
 
+// --- Frontière run ↔ combat --------------------------------------------------
+
+/**
+ * Réécrit dans la run les résultats d'une victoire au combat.
+ *
+ * À appeler uniquement en cas de victoire (state.status === 'won').
+ * En cas de défaite, ne pas appeler cette fonction : les PV de la run ne sont
+ * pas modifiés.
+ *
+ * @param {object} run          run vivante (mutée en place)
+ * @param {object} combatState  état de combat final (issu de src/engine/combat.js)
+ */
+export function applyVictoryToRun(run, combatState) {
+  run.hp     = combatState.duo.hp;
+  run.credit += combatState.duo.credit;
+}
+
 // --- Progression -------------------------------------------------------------
 
 /**

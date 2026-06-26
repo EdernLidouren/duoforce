@@ -197,14 +197,24 @@ function drawPowers(state, n) {
 
 /**
  * Initialise un combat : deck fusionné et mélangé, états de départ des deux camps.
+ *
+ * Quand le combat est lancé depuis une run, passer `duoHp` et `duoMaxHp` pour que
+ * les PV du duo soient ceux de la run et non recalculés depuis DEFAULT_DUO_HP.
+ * Le combat est transitoire : les valeurs sont réécrites dans la run à sa résolution
+ * via `applyVictoryToRun` (src/engine/run.js).
+ *
  * @param {object} [options]
- * @param {Array}  [options.heroes]  deux héros du duo (défaut : les deux placeholders).
- * @param {object} [options.enemy]   surcharges d'ennemi.
+ * @param {Array}  [options.heroes]    deux héros du duo (défaut : les deux placeholders).
+ * @param {object} [options.enemy]     surcharges d'ennemi.
+ * @param {number} [options.duoHp]     PV de départ du duo (depuis run.hp si run-backed).
+ * @param {number} [options.duoMaxHp]  PV max du duo (depuis run.maxHp si run-backed).
  * @param {() => number} [options.rng]
  * @returns {object} état de combat
  */
-export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math.random } = {}) {
+export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, duoHp, duoMaxHp, rng = Math.random } = {}) {
   const deck = shuffle(buildDeck(heroes), rng);
+  const resolvedMaxHp = duoMaxHp ?? DEFAULT_DUO_HP;
+  const resolvedHp    = duoHp    ?? resolvedMaxHp;
 
   const state = {
     heroes,
@@ -221,9 +231,9 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, rng = Math
     // progression partagée et persistante.
     events: createEventStore(),
     duo: {
-      hp: DEFAULT_DUO_HP,
-      maxHp: DEFAULT_DUO_HP,
-      attack: 0,
+      hp:      resolvedHp,
+      maxHp:   resolvedMaxHp,
+      attack:  0,
       defense: 0,
       maneuver: 0,
       strategy: 0,
