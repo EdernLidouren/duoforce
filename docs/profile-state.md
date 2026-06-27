@@ -47,6 +47,16 @@ Keep these strictly distinct:
 - **metaCurrency** — lives in the profile. Persistent, earned across runs,
   spent on permanent unlocks. Never reset by a run ending.
 
+`metaCurrency` is incremented by `endRun` based on the `RunResult` computed by
+`computeRunResult` (see `src/engine/runResult.js`). Current formula (v1):
+
+| Outcome        | meta-points formula         | Max (round 10, phase 3) |
+|----------------|-----------------------------|-------------------------|
+| victory        | `phase × round`             | 30                      |
+| defeat / abandon | `floor(phase × round / 2)` | 14 (rounds down)        |
+
+Round 1, phase 1 in defeat/abandon yields 0 (anti-farm by design).
+
 Naming them differently everywhere avoids confusion.
 
 ---
@@ -93,6 +103,11 @@ and easy extension. Current fields:
 `src/engine/endRun.js`. That function is the only place allowed to null
 `profile.run`, increment `runsCompleted`, and call `saveProfileToLocal`.
 No scene or handler may bypass it.
+
+`endRun` delegates the score calculation to `computeRunResult` in
+`src/engine/runResult.js` (pure, no side effects), applies the resulting
+`metaPoints` to `profile.metaCurrency`, then returns the full `RunResult`
+object for the end-of-run scene to display.
 
 `runsCompleted` should always equal `wins + losses + abandons`; having a
 single counter avoids recomputing the sum every time.

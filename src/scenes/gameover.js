@@ -2,13 +2,12 @@
 //
 // Affichée quand les PV du duo tombent à 0 pendant un combat.
 //
-// Ordre critique :
-//   1. Lire context.run AVANT d'appeler endRun (endRun met run à null).
-//   2. Appeler endRun(profile, 'defeat') → incrémente losses + runsCompleted, sauvegarde.
-//   3. Construire l'UI avec les données de progression capturées.
+// endRun() lit la progression de la run, calcule le rapport, l'applique au profil,
+// met profile.run à null et retourne le rapport — la scène ne lit jamais
+// directement ctx.run, qui peut déjà être null à l'entrée en raison de ce flux.
 //
-// Conçue pour accueillir plus tard un récapitulatif complet de run (statistiques,
-// méta-monnaie gagnée…) sans refonte : il suffit d'ajouter des items à la liste.
+// Conçue pour accueillir plus tard un écran de score détaillé : le rapport
+// contient tous les termes nécessaires (outcome, day, mission, base, metaPoints).
 
 import { LinearMenu } from '../ui/menus/LinearMenu.js';
 import { endRun }     from '../engine/endRun.js';
@@ -19,30 +18,33 @@ export function createGameOverScene() {
 
   return {
     mount(ctx) {
-      const g = ctx.strings?.gameover ?? {};
+      const g = ctx.strings?.gameover    ?? {};
+      const r = ctx.strings?.runResult   ?? {};
 
-      // Capturer la progression AVANT d'appeler endRun (qui met run à null).
-      const run   = ctx.run;
-      const round = run?.progression?.round ?? null;
-
-      // Terminer la run : run → null, losses++, runsCompleted++, sauvegarde.
-      endRun(ctx.profile, 'defeat');
+      // endRun lit la progression avant de mettre run à null, calcule et retourne le rapport.
+      const result = endRun(ctx.profile, 'defeat');
 
       // Annonce assertive : NVDA lit immédiatement, sans attendre la navigation.
       ctx.announce.assertive(g.title ?? 'Défaite.');
 
       const items = [
         { id: 'message', label: g.defeat ?? 'Votre duo a été vaincu.' },
+        {
+          id:    'summary',
+          label: format(g.summary ?? 'Atteint : jour {day}, mission {mission}.', {
+            day:     result.day,
+            mission: result.mission,
+          }),
+        },
+        {
+          id:    'metaPoints',
+          label: format(r.metaPointsEarned ?? 'Méta-points gagnés : {points}.', {
+            points: result.metaPoints,
+          }),
+        },
       ];
 
-      if (round !== null) {
-        items.push({
-          id: 'summary',
-          label: format(g.summary ?? 'Atteint : jour {round}.', { round }),
-        });
-      }
-
-      // Emplacement futur : récapitulatif détaillé, méta-monnaie, etc.
+      // Emplacement futur : récapitulatif détaillé, méta-monnaie totale, etc.
 
       items.push({ id: 'backMenu', label: g.backToMenu ?? 'Retour au menu principal.' });
 

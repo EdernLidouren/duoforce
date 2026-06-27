@@ -7,7 +7,8 @@
       "PowerShell(Get-Command node -ErrorAction SilentlyContinue)",
       "PowerShell(Get-Command deno -ErrorAction SilentlyContinue)",
       "PowerShell(Get-Command bun -ErrorAction SilentlyContinue)",
-      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)",
+      "Bash(node -e ' *)"
     ]
   }
 }

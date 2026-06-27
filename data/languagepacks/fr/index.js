@@ -330,8 +330,13 @@ export default {
   gameover: {
     title:      'Défaite',
     defeat:     'Votre duo a été vaincu.',
-    summary:    'Atteint : jour {round}.',
+    summary:    'Atteint : jour {day}, mission {mission}.',
     backToMenu: 'Retour au menu principal.',
+  },
+
+  // Rapport de fin de run (runResult.js) — chaînes partagées entre les scènes de fin.
+  runResult: {
+    metaPointsEarned: 'Méta-points gagnés : {points}.',
   },
 
   power: {
