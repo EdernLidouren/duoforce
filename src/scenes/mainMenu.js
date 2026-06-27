@@ -9,8 +9,8 @@
 import { LinearMenu } from '../ui/menus/LinearMenu.js';
 import { createRun } from '../engine/run.js';
 import { getHeroById } from '../data/heroes/index.js';
-import { saveProfileToLocal } from '../engine/persistence.js';
 import { openConfirm } from './confirm.js';
+import { endRun }      from '../engine/endRun.js';
 import { debug } from '../config/debug.js';
 
 /** Identifiants stables des choix (découplés des libellés traduits). */
@@ -96,9 +96,7 @@ export function createMainMenuScene() {
             question:      strings?.menu?.abandonQuestion ?? 'Votre run en cours sera définitivement perdue. Abandonner ?',
             defaultChoice: 'no',
             onConfirm: () => {
-              context.run = null;
-              context.profile.stats.abandons++;
-              saveProfileToLocal(context.profile);
+              endRun(context.profile, 'abandon');
               context.router.go('menu');
             },
             onCancel: () => context.router.go('menu'),

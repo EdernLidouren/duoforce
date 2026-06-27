@@ -319,11 +319,10 @@ export default {
   },
 
   gameover: {
-    title: 'Game over.',
-    win: 'You win.',
-    lose: 'You lose.',
-    draw: 'Draw.',
-    backToMenu: 'Back to menu',
+    title:      'Defeat',
+    defeat:     'Your duo has been defeated.',
+    summary:    'Reached: day {round}.',
+    backToMenu: 'Back to main menu.',
   },
 
   power: {

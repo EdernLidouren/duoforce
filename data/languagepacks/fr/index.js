@@ -328,11 +328,10 @@ export default {
   },
 
   gameover: {
-    title: 'Partie terminée.',
-    win: 'Victoire.',
-    lose: 'Défaite.',
-    draw: 'Match nul.',
-    backToMenu: 'Retour au menu',
+    title:      'Défaite',
+    defeat:     'Votre duo a été vaincu.',
+    summary:    'Atteint : jour {round}.',
+    backToMenu: 'Retour au menu principal.',
   },
 
   power: {

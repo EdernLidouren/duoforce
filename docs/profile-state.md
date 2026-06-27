@@ -78,8 +78,24 @@ eligibility can add a criterion "id is in profile unlocks").
 
 ### stats
 A sub-object grouping all cumulative statistics, kept together for readability
-and easy extension. Examples: total play time, number of runs started, wins,
-losses, abandons, etc.
+and easy extension. Current fields:
+
+| Field           | Incremented by                        |
+|-----------------|---------------------------------------|
+| `runsStarted`   | On new-game / test-run launch         |
+| `runsCompleted` | `endRun()` — every outcome            |
+| `wins`          | `endRun(profile, 'victory')`          |
+| `losses`        | `endRun(profile, 'defeat')`           |
+| `abandons`      | `endRun(profile, 'abandon')`          |
+| `playTimeMs`    | Reserved — not yet implemented        |
+
+**All end-of-run updates go through `endRun(profile, outcome)`** in
+`src/engine/endRun.js`. That function is the only place allowed to null
+`profile.run`, increment `runsCompleted`, and call `saveProfileToLocal`.
+No scene or handler may bypass it.
+
+`runsCompleted` should always equal `wins + losses + abandons`; having a
+single counter avoids recomputing the sum every time.
 
 Many of these can eventually be derived from the existing event system /
 `progressionLog` rather than counted by hand. Whether to keep explicit

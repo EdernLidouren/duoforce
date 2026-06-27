@@ -1,37 +1,68 @@
-// src/scenes/gameover.js — Scène « fin de partie ».
+// src/scenes/gameover.js — Scène de défaite (game over négatif).
 //
-// Affiche le résultat (gagnant / nul), l'annonce de façon assertive, et propose
-// de revenir au menu (context.router.go('menu')).
+// Affichée quand les PV du duo tombent à 0 pendant un combat.
 //
-// Contrainte : présentation + navigation uniquement ; le résultat est calculé
-// par engine et transmis à la scène (ici via context, à brancher plus tard).
+// Ordre critique :
+//   1. Lire context.run AVANT d'appeler endRun (endRun met run à null).
+//   2. Appeler endRun(profile, 'defeat') → incrémente losses + runsCompleted, sauvegarde.
+//   3. Construire l'UI avec les données de progression capturées.
+//
+// Conçue pour accueillir plus tard un récapitulatif complet de run (statistiques,
+// méta-monnaie gagnée…) sans refonte : il suffit d'ajouter des items à la liste.
 
-import { attachInput, Intent } from '../ui/input.js';
+import { LinearMenu } from '../ui/menus/LinearMenu.js';
+import { endRun }     from '../engine/endRun.js';
+import { format }     from '../ui/format.js';
 
 export function createGameOverScene() {
-  let detachInput = null;
+  let activeMenu = null;
 
-  function mount(context) {
-    const { root, announce, strings, router } = context;
+  return {
+    mount(ctx) {
+      const g = ctx.strings?.gameover ?? {};
 
-    // TODO: afficher le résultat (à passer via context lors de la navigation).
-    root.replaceChildren();
-    root.focus();
-    announce.assertive(strings?.gameover?.title ?? '');
+      // Capturer la progression AVANT d'appeler endRun (qui met run à null).
+      const run   = ctx.run;
+      const round = run?.progression?.round ?? null;
 
-    detachInput = attachInput(root, (intent) => {
-      if (intent === Intent.CONFIRM || intent === Intent.CANCEL) {
-        router.go('menu');
+      // Terminer la run : run → null, losses++, runsCompleted++, sauvegarde.
+      endRun(ctx.profile, 'defeat');
+
+      // Annonce assertive : NVDA lit immédiatement, sans attendre la navigation.
+      ctx.announce.assertive(g.title ?? 'Défaite.');
+
+      const items = [
+        { id: 'message', label: g.defeat ?? 'Votre duo a été vaincu.' },
+      ];
+
+      if (round !== null) {
+        items.push({
+          id: 'summary',
+          label: format(g.summary ?? 'Atteint : jour {round}.', { round }),
+        });
       }
-    });
-  }
 
-  function unmount() {
-    if (detachInput) {
-      detachInput();
-      detachInput = null;
-    }
-  }
+      // Emplacement futur : récapitulatif détaillé, méta-monnaie, etc.
 
-  return { mount, unmount };
+      items.push({ id: 'backMenu', label: g.backToMenu ?? 'Retour au menu principal.' });
+
+      activeMenu = new LinearMenu({
+        container:     ctx.root,
+        announce:      ctx.announce,
+        orientation:   'vertical',
+        title:         g.title   ?? 'Défaite',
+        ariaLabel:     g.title   ?? 'Défaite',
+        interfaceName: g.title   ?? 'Défaite',
+        items,
+        onConfirm: (item) => {
+          if (item.id === 'backMenu') ctx.router.go('menu');
+        },
+      });
+      activeMenu.mount();
+    },
+
+    unmount() {
+      if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
+    },
+  };
 }
