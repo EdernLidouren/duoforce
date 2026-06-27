@@ -36,7 +36,9 @@ export function createProfile() {
       playTimeMs:  0,
     },
     preferences: {
-      menuCycling: false,
+      menuCycling:    false,
+      testListChoice: 'optA',
+      testVolume:     70,
     },
     meta: {
       saveFormatVersion: SAVE_FORMAT_VERSION,
@@ -96,7 +98,9 @@ export function deserializeProfile(saveObject) {
       playTimeMs:  saveObject.stats?.playTimeMs  ?? 0,
     },
     preferences: {
-      menuCycling: saveObject.preferences?.menuCycling ?? false,
+      menuCycling:    saveObject.preferences?.menuCycling    ?? false,
+      testListChoice: saveObject.preferences?.testListChoice ?? 'optA',
+      testVolume:     saveObject.preferences?.testVolume     ?? 70,
     },
     meta: {
       saveFormatVersion: savedVersion,

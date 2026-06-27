@@ -529,6 +529,30 @@ export default {
     hero_mindel:   "Héros de contrôle. Manipule le froid et la gravité pour affaiblir l'adversaire.",
   },
 
+  // Éditeur générique brouillon/validation (DraftEditor.js).
+  // Ces chaînes sont indépendantes du domaine « options » ou « préférences ».
+  draftEditor: {
+    validate:   'Valider : enregistre les modifications apportées.',
+    cancel:     'Annuler : ferme le menu en ignorant les modifications.',
+    on:         'On',
+    off:        'Off',
+    pagesLabel: 'Pages',
+  },
+
+  // Menu Options (premier client du DraftEditor).
+  options: {
+    title:           'Options',
+    catAccessibility: 'Accessibilité',
+    catAudio:         'Audio',
+    menuCycling:      'Cyclage des menus',
+    testListChoice:   'Choix test',
+    testOptA:         'Option Alpha',
+    testOptB:         'Option Bêta',
+    testOptC:         'Option Gamma',
+    testVolume:       'Volume sonore',
+    volumeFormat:     '{v} %',
+  },
+
   a11y: {
     // Messages destinés aux régions live (à compléter).
     invalidMove: 'Coup invalide.',

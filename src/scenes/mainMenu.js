@@ -111,6 +111,11 @@ export function createMainMenuScene() {
           return;
         }
 
+        if (id === MainMenuChoice.OPTIONS) {
+          context.router.go('options');
+          return;
+        }
+
         if (id === MainMenuChoice.TEST_RUN) {
           const h1 = getHeroById('hero_paladium');
           const h2 = getHeroById('hero_mindel');
@@ -148,8 +153,8 @@ export function createMainMenuScene() {
           return;
         }
 
-        // Options, Quitter : stubs.
-        console.log('[mainMenu] choix sélectionné :', id);
+        // Quitter : stub (pas de window.close() fiable en contexte browser).
+        console.log('[mainMenu] choix non géré :', id);
       }
     },
 

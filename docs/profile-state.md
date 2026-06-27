@@ -149,6 +149,34 @@ clean detection). Same guard already applied to the run save object.
 
 ---
 
+## Applying preferences at runtime
+
+Saving `profile.preferences` is not enough: systems that depend on preferences
+must re-read them whenever the player changes a setting. The single hook for this
+is `applyPreferences(prefs)` in `src/ui/applyPreferences.js`.
+
+It is called in two places only:
+
+1. **At startup** (`main.js`) — right after loading the profile from localStorage,
+   so the previously saved settings take effect immediately.
+2. **On Options validation** (`src/scenes/options.js`) — right after the new draft
+   is written to `profile.preferences` and saved, so changes take effect without a
+   reload.
+
+### How to wire a new preference to a system
+
+1. Add the key to `createProfile().preferences` in `profile.js`.
+2. Add the field to the `schema` in `options.js` (one of `toggle`, `list`, `knob`).
+3. Add `systems.setSomething(prefs.newKey)` inside `applyPreferences()`.
+4. Add the localization strings in both language packs under `options.*`.
+
+`applyPreferences` is the only place where preference values are pushed to
+systems; do not read `profile.preferences` directly from within UI subsystems —
+let them read the shared `preferences` object in `src/ui/preferences.js`, which
+`applyPreferences` updates.
+
+---
+
 ## Summary of rules
 
 1. The profile is the root save unit; mono-profile, no save naming.
@@ -162,3 +190,5 @@ clean detection). Same guard already applied to the run save object.
 7. Auto-save to localStorage; manual export/import via base64 copy-paste.
 8. The profile serializes itself; a separate persistence layer decides where
    and when.
+9. After any preference change, call `applyPreferences(prefs)` — never push
+   preference values to systems directly from scenes or the profile.

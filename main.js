@@ -25,6 +25,8 @@ import { createVictoryScene }  from './src/scenes/victory.js';
 import { createRunWonScene }   from './src/scenes/runWon.js';
 import { createConfirmScene }     from './src/scenes/confirm.js';
 import { createSaveManagerScene } from './src/scenes/saveManager.js';
+import { createOptionsScene }     from './src/scenes/options.js';
+import { applyPreferences }       from './src/ui/applyPreferences.js';
 import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
@@ -42,6 +44,8 @@ async function bootstrap() {
 
   // Profil actif : chargé depuis localStorage si présent, sinon neuf.
   const profile = loadProfileFromLocal() ?? createProfile();
+  // Appliquer les préférences sauvegardées aux systèmes UI dès le démarrage.
+  applyPreferences(profile.preferences);
 
   // Contexte partagé passé à mount() de chaque scène.
   // Les scènes l'utilisent pour : rendre dans `root`, annoncer via `announce`,
@@ -70,6 +74,7 @@ async function bootstrap() {
   router.register('combat',   createCombatScene());
   router.register('confirm',      createConfirmScene());
   router.register('save-manager', createSaveManagerScene());
+  router.register('options',      createOptionsScene());
 
   // Navigation initiale.
   router.go('menu');

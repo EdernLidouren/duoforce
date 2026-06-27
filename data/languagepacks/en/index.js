@@ -519,6 +519,30 @@ export default {
     hero_mindel:   'Control hero. Harnesses cold and gravity to weaken the enemy.',
   },
 
+  // Generic draft/commit editor (DraftEditor.js).
+  // These strings are domain-agnostic — not tied to 'options' or 'preferences'.
+  draftEditor: {
+    validate:   'Confirm: saves the changes made.',
+    cancel:     'Cancel: closes the menu, discarding changes.',
+    on:         'On',
+    off:        'Off',
+    pagesLabel: 'Pages',
+  },
+
+  // Options menu (first client of DraftEditor).
+  options: {
+    title:            'Options',
+    catAccessibility: 'Accessibility',
+    catAudio:         'Audio',
+    menuCycling:      'Menu cycling',
+    testListChoice:   'Test choice',
+    testOptA:         'Option Alpha',
+    testOptB:         'Option Beta',
+    testOptC:         'Option Gamma',
+    testVolume:       'Sound volume',
+    volumeFormat:     '{v} %',
+  },
+
   a11y: {
     invalidMove: 'Invalid move.',
   },
