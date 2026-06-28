@@ -384,12 +384,24 @@ export default {
   },
 
   strategy: {
-    no_points:     'You have no strategies left.',
-    empty:         'No power in this area.',
-    no_candidates: 'No replacement available.',
-    done:          'Strategy applied.',
-    cancelled:     'Strategy cancelled.',
-    pickTitle:     'Choose a replacement. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+    no_points:       'You have no strategies left.',
+    empty:           'No power in this area.',
+    no_candidates:   'No replacement available.',
+    done:            'Strategy applied.',
+    cancelled:       'Strategy cancelled.',
+    selectSource:    'Select a power to replace. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+    sourceForbidden: 'Cannot replace',
+    pickTitle:       'Choose a replacement for {name}. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
+  },
+
+  targeting: {
+    noItems:        'No options available.',
+    debugStep1:     'Debug targeting step 1/2: pick a zone with a power.',
+    debugStep2:     'Debug targeting step 2/2: pick an adjacent zone.',
+    debugForbidden: 'Empty zone',
+    debugEmpty:     'No adjacent powers.',
+    debugDone:      'Debug done: zone {z1} then zone {z2}.',
+    debugCancelled: 'Debug targeting test cancelled.',
   },
 
   zoneSelector: {
@@ -545,6 +557,39 @@ export default {
     testOptC:         'Option Gamma',
     testVolume:       'Sound volume',
     volumeFormat:     '{v} %',
+  },
+
+  // Gadgets — widget UI strings + names and descriptions (indexed by id).
+  gadgets: {
+    // Widget UI strings.
+    zoneName:      'Gadget zone',
+    emptySlot:     'slot {n} empty',
+    summary:       '{count} of {capacity}',
+    noAction:      'No action available.',
+    notUsableHere: 'not usable here',
+    use:           'Use',
+    back:          'Back',
+    used:          'Gadget used.',
+    usedNamed:     '{name} used.',
+    counter:       'charge {value}/{max}',
+
+    // Names and descriptions (one object per gadget id).
+    gadget_bandage: {
+      name:        'Bandage',
+      description: 'Quick heal (+5 HP). Usable from the secret base.',
+    },
+    gadget_medkit: {
+      name:        'Med Kit',
+      description: 'Major heal (+15 HP). Usable from the secret base.',
+    },
+    gadget_energizer: {
+      name:        'Energizer',
+      description: 'One-shot attack boost. Usable in combat only.',
+    },
+    gadget_charge_cell: {
+      name:        'Charge Cell',
+      description: 'Recharges over turns. Triggers its effect when the gauge is full.',
+    },
   },
 
   a11y: {

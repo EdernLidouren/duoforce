@@ -394,12 +394,24 @@ export default {
   },
 
   strategy: {
-    no_points:    "Vous n'avez plus de stratégies.",
-    empty:        'Aucun pouvoir dans cette zone.',
-    no_candidates: 'Aucun pouvoir de remplacement disponible.',
-    done:         'Stratégie appliquée.',
-    cancelled:    'Stratégie annulée.',
-    pickTitle:    'Choisissez un remplacement. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+    no_points:       "Vous n'avez plus de stratégies.",
+    empty:           'Aucun pouvoir dans cette zone.',
+    no_candidates:   'Aucun pouvoir de remplacement disponible.',
+    done:            'Stratégie appliquée.',
+    cancelled:       'Stratégie annulée.',
+    selectSource:    'Choisissez un pouvoir à remplacer. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+    sourceForbidden: 'Remplacement impossible',
+    pickTitle:       'Choisissez un remplacement pour {name}. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
+  },
+
+  targeting: {
+    noItems:        'Aucun choix disponible.',
+    debugStep1:     'Ciblage debug étape 1/2 : choisissez une zone avec un pouvoir.',
+    debugStep2:     'Ciblage debug étape 2/2 : choisissez une zone adjacente.',
+    debugForbidden: 'Zone vide',
+    debugEmpty:     'Aucun pouvoir adjacent à cette zone.',
+    debugDone:      'Ciblage debug : zone {z1} puis zone {z2}.',
+    debugCancelled: 'Test de ciblage annulé.',
   },
 
   zoneSelector: {
@@ -555,6 +567,39 @@ export default {
     testOptC:         'Option Gamma',
     testVolume:       'Volume sonore',
     volumeFormat:     '{v} %',
+  },
+
+  // Gadgets — UI de la zone + noms et descriptions (indexés par id).
+  gadgets: {
+    // Chaînes UI du widget d'inventaire.
+    zoneName:      'Zone gadgets',
+    emptySlot:     'emplacement {n} vide',
+    summary:       '{count} sur {capacity}',
+    noAction:      'Aucune action disponible.',
+    notUsableHere: 'non utilisable ici',
+    use:           'Utiliser',
+    back:          'Retour',
+    used:          'Gadget utilisé.',
+    usedNamed:     '{name} utilisé.',
+    counter:       'charge {value}/{max}',
+
+    // Noms et descriptions (un objet par id de gadget).
+    gadget_bandage: {
+      name:        'Pansement',
+      description: 'Soin rapide (+5 PV). Utilisable depuis la base secrète.',
+    },
+    gadget_medkit: {
+      name:        'Trousse de soin',
+      description: 'Soin important (+15 PV). Utilisable depuis la base secrète.',
+    },
+    gadget_energizer: {
+      name:        'Stimulateur',
+      description: "Boost d'attaque ponctuel. Utilisable en combat uniquement.",
+    },
+    gadget_charge_cell: {
+      name:        'Cellule de charge',
+      description: 'Se recharge au fil des tours. Déclenche son effet quand la jauge est pleine.',
+    },
   },
 
   a11y: {

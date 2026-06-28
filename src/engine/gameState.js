@@ -40,6 +40,9 @@ export const STRATEGY_PICK = 3;
 /** Points de vie de départ du duo. */
 export const DEFAULT_DUO_HP = 30;
 
+/** Nombre d'emplacements de gadgets par défaut (liste compacte sans trou). */
+export const DEFAULT_GADGET_SLOTS = 3;
+
 /** Crédits de départ du duo. */
 export const STARTING_CREDIT = 0;
 

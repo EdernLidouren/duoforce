@@ -4,34 +4,65 @@
 // Affiche l'état du duo, les options inter-combats et la prochaine mission.
 // C'est le point de sauvegarde légitime : la run est sérialisée à chaque montage.
 //
-// Hiérarchie de menus :
-//   Hub (LinearMenu)
-//     └─ Duo (SubMenu informative + onConfirm par item)
-//          └─ Deck (SubMenu informative + onConfirm par item)
-//               └─ Détail du pouvoir (SubMenu informative)
+// Structure zones (Tab/Shift+Tab) :
+//   Zone 0 — menu principal (LinearMenu) : items du hub
+//   Zone 1 — inventaire gadgets (GadgetInventoryWidget) : navigation horizontale
+//
+// Quand un SubMenu est ouvert (Duo, Deck, Détail de pouvoir), les zones sont
+// démontées et le SubMenu remplace directement ctx.root. mountHub() recrée les
+// zones à chaque retour.
 //
 // Aucun DOM hors de ce module et src/ui/.
 // Aucun accès au mécanisme de seed : l'ennemi courant est obtenu via getNextEnemy.
 
 import { LinearMenu }  from '../ui/menus/LinearMenu.js';
 import { SubMenu }     from '../ui/menus/SubMenu.js';
+import { createZoneController } from '../ui/zones.js';
+import { createGadgetInventoryWidget } from '../ui/GadgetInventoryWidget.js';
 import { getNextEnemy } from '../engine/run.js';
 import { saveProfileToLocal } from '../engine/persistence.js';
 import { getPowerById } from '../data/powers/index.js';
 import { matchKeybinding, KEYBINDINGS } from '../ui/keybindings.js';
 import { format } from '../ui/format.js';
+import { addGadget } from '../engine/gadgets.js';
+import { getGadgetById } from '../data/gadgets/index.js';
 
 export function createRunHubScene() {
   let ctx         = null;
   let activeMenu  = null;
   let keyHandler  = null;
 
+  // Zone controller + gadget widget (null hors hub principal).
+  let activeZone   = null;
+  let activeWidget = null;
+  let menuZoneEl   = null;
+  let gadgetZoneEl = null;
+
   // --- Helpers -------------------------------------------------------------------
 
   function hub() { return ctx.strings?.runHub ?? {}; }
 
+  /**
+   * Démonte tout ce qui est lié au hub multi-zones (zone controller, widget,
+   * conteneurs de zone, menu principal). Appelé avant chaque swap() ou avant
+   * de remonter le hub.
+   */
+  function disposeAll() {
+    if (activeZone)   { activeZone.dispose();  activeZone   = null; }
+    if (activeWidget) { activeWidget.unmount(); activeWidget = null; }
+    if (menuZoneEl)   { menuZoneEl.remove();   menuZoneEl   = null; }
+    if (gadgetZoneEl) { gadgetZoneEl.remove(); gadgetZoneEl = null; }
+    if (activeMenu)   { activeMenu.unmount();  activeMenu   = null; }
+    // Retirer role="application" posé par le zone controller sur ctx.root.
+    if (ctx?.root) ctx.root.removeAttribute('role');
+  }
+
+  /**
+   * Remplace l'interface courante par un nouveau menu (SubMenu).
+   * Démonte le hub multi-zones avant de monter le menu.
+   */
   function swap(newMenu) {
-    if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
+    disposeAll();
     activeMenu = newMenu;
     newMenu.mount();
   }
@@ -78,6 +109,8 @@ export function createRunHubScene() {
   // --- Hub principal -------------------------------------------------------------
 
   function mountHub(initialIndex = 0) {
+    disposeAll();
+
     const h   = hub();
     const run = ctx.run;
     const { round, phase } = run.progression;
@@ -88,12 +121,29 @@ export function createRunHubScene() {
     const eDesc = enemyDescription(enemy);
     const count = deckPowerIds(run).length;
 
+    // Pré-remplissage debug : gadgets de test si l'inventaire est vide.
+    if (ctx.debug?.enabled && run.gadgets.length === 0) {
+      const bandage   = getGadgetById('gadget_bandage');
+      const medkit    = getGadgetById('gadget_medkit');
+      const energizer = getGadgetById('gadget_energizer');
+      if (bandage)   addGadget(run, bandage);
+      if (medkit)    addGadget(run, medkit);
+      if (energizer) addGadget(run, energizer);
+    }
+
     const launchLabel = eDesc
       ? format(h.launchEntryFull ?? 'Lancer la mission {type} contre {enemy} : {description}', { type, enemy: enemyName(enemy), description: eDesc })
       : format(h.launchEntry     ?? 'Lancer la mission {type} contre {enemy}.', { type, enemy: enemyName(enemy) });
 
-    swap(new LinearMenu({
-      container:    ctx.root,
+    // Créer les conteneurs de zone.
+    menuZoneEl   = document.createElement('div');
+    gadgetZoneEl = document.createElement('div');
+    ctx.root.appendChild(menuZoneEl);
+    ctx.root.appendChild(gadgetZoneEl);
+
+    // Zone 0 — menu principal.
+    activeMenu = new LinearMenu({
+      container:    menuZoneEl,
       announce:     ctx.announce,
       orientation:  'vertical',
       initialIndex,
@@ -126,12 +176,58 @@ export function createRunHubScene() {
         // 'shop' : informatif pour l'instant.
       },
       onCancel: () => { /* pas d'annulation depuis le hub */ },
-    }));
+    });
+    activeMenu.mount();
+
+    // Zone 1 — inventaire de gadgets.
+    const gStr = ctx.strings?.gadgets ?? {};
+    activeWidget = createGadgetInventoryWidget({
+      container:    gadgetZoneEl,
+      run,
+      usageContext: 'hub',
+      strings:      ctx.strings,
+      announce:     ctx.announce,
+      onAfterUse:   () => saveProfileToLocal(ctx.profile),
+    });
+    activeWidget.mount();
+
+    // Contrôleur de zones (Tab/Shift+Tab sur ctx.root).
+    activeZone = createZoneController({
+      container: ctx.root,
+      announce:  ctx.announce,
+      label:     h.label ?? 'Base secrète',
+      zones: [
+        {
+          id:      'menu',
+          element: menuZoneEl,
+          label:   h.title ?? 'Base secrète',
+          noAria:  true,
+          focus:   () => {
+            const el = menuZoneEl.querySelector('[role="menu"]');
+            if (el) el.focus(); else menuZoneEl.focus();
+          },
+        },
+        {
+          id:      'gadgets',
+          element: gadgetZoneEl,
+          label:   gStr.zoneName ?? 'Zone gadgets',
+          noAria:  true,
+          focus:   () => activeWidget.focus(),
+          onKey:   (event) => activeWidget.handleKey(event),
+          onEnter: () => {
+            const summary  = activeWidget.getSummary();
+            const slotDesc = activeWidget.getCurrentSlotDescription();
+            return slotDesc ? `${summary}. ${slotDesc}` : summary;
+          },
+        },
+      ],
+      defaultZone: 0,
+    });
+    activeZone.mount();
   }
 
   // --- Menu duo ------------------------------------------------------------------
 
-  // onBack : callback appelé pour revenir au menu parent (avec index restauré).
   function openDuoMenu(onBack, initialIndex = 0) {
     const h   = hub();
     const run = ctx.run;
@@ -172,7 +268,6 @@ export function createRunHubScene() {
 
   // --- Menu deck -----------------------------------------------------------------
 
-  // onBack : callback appelé pour revenir au menu duo (avec index restauré).
   function openDeckMenu(onBack, initialIndex = 0) {
     const h     = hub();
     const run   = ctx.run;
@@ -269,6 +364,20 @@ export function createRunHubScene() {
         }));
         return;
       }
+
+      // G : bascule entre la zone gadgets et la zone par défaut (menu).
+      // Inopérant si les zones ne sont pas montées (SubMenu ouvert, etc.).
+      if (binding === KEYBINDINGS.GADGET_ZONE) {
+        if (!activeZone) return;
+        event.preventDefault();
+        const GADGET_IDX = 1;
+        if (activeZone.activeIndex === GADGET_IDX) {
+          activeZone.activate(0);         // retour au menu
+        } else {
+          activeZone.activate(GADGET_IDX); // aller aux gadgets
+        }
+        return;
+      }
     };
     document.addEventListener('keydown', keyHandler);
   }
@@ -288,7 +397,7 @@ export function createRunHubScene() {
     },
     unmount() {
       detachKeybindings();
-      if (activeMenu) { activeMenu.unmount(); activeMenu = null; }
+      disposeAll();
       ctx = null;
     },
   };

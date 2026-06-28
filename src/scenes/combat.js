@@ -41,9 +41,8 @@ import { perkLongDescription } from '../ui/perkText.js';
 import { createListNavigator } from '../ui/listNavigation.js';
 import { turnMessages, resolutionMessages, turnStartMessage, perkActivationMessage } from '../ui/combatMessages.js';
 import { BOARD_ROWS, indexToXY, xyToIndex, describeBoardCell } from '../ui/boardText.js';
-import { createZoneSelector } from '../ui/zoneSelector.js';
-import { createStrategyPicker } from '../ui/strategyPicker.js';
-import { canStartManeuver, canManeuverFrom, executeManeuver } from '../engine/maneuver.js';
+import { createTargetingResolver } from '../ui/targeting.js';
+import { canStartManeuver, canManeuverFrom, executeManeuver, reachablePositions } from '../engine/maneuver.js';
 import { validateAction, createAction } from '../engine/actions.js';
 import { canRemove, canDiscard } from '../engine/powerActions.js';
 import { buildCandidates, executeStrategy, canUseStrategySource } from '../engine/strategy.js';
@@ -419,40 +418,40 @@ export function createCombatScene() {
     if (activeSelector) activeSelector.close();
 
     const strings = context.strings;
-    const sourcePower = state.board[sourcePos].power;
-    const srcName = powerName(sourcePower, strings);
-    const openMsg = format(
-      strings?.maneuver?.selectTarget
-        ?? 'Choose a zone to swap with {name}. Arrow keys, Enter to confirm, Escape to cancel.',
-      { name: srcName },
-    );
+    const srcName = powerName(state.board[sourcePos].power, strings);
 
-    activeSelector = createZoneSelector({
-      tdByIndex,
-      strings,
-      announce: context.announce,
-      getZoneState: (pos) => {
-        if (pos === sourcePos) return {
-          status: 'forbidden',
-          label: strings?.maneuver?.selectedSource ?? 'Selected',
-        };
-        const { allowed, reason } = validateAction(state, createAction('swap_powers', {
-          source: sourcePos, target: pos, data: { maxDistance: 1 },
-        }));
-        if (allowed) return { status: 'selectable' };
-        if (reason === 'action.blocked.out_of_range') return { status: 'out_of_range' };
-        const label = reason === 'action.blocked.anchored'
-          ? (strings?.maneuver?.immovable ?? 'Immovable')
-          : (strings?.maneuver?.swapForbidden ?? 'Swap forbidden');
-        return { status: 'forbidden', label, sources: [reason] };
-      },
-      describeCell: describeCellAt,
-      openMessage: openMsg,
-      forbiddenPrefix: strings?.maneuver?.swapForbidden ?? 'Swap forbidden',
-      onConfirm: (targetPos) => {
+    const resolver = createTargetingResolver({
+      steps: [
+        {
+          targetType: 'area',
+          label: format(
+            strings?.maneuver?.selectTarget
+              ?? 'Choose a zone to swap with {name}. Arrow keys, Enter to confirm, Escape to cancel.',
+            { name: srcName },
+          ),
+          forbiddenPrefix: strings?.maneuver?.swapForbidden ?? 'Swap forbidden',
+          initialPosition: sourcePos,
+          getZoneState: (pos) => {
+            if (pos === sourcePos) return {
+              status: 'forbidden',
+              label: strings?.maneuver?.selectedSource ?? 'Selected',
+            };
+            const { allowed, reason } = validateAction(state, createAction('swap_powers', {
+              source: sourcePos, target: pos, data: { maxDistance: 1 },
+            }));
+            if (allowed) return { status: 'selectable' };
+            if (reason === 'action.blocked.out_of_range') return { status: 'out_of_range' };
+            const label = reason === 'action.blocked.anchored'
+              ? (strings?.maneuver?.immovable ?? 'Immovable')
+              : (strings?.maneuver?.swapForbidden ?? 'Swap forbidden');
+            return { status: 'forbidden', label, sources: [reason] };
+          },
+        },
+      ],
+      resolveContext: { tdByIndex, announce: context.announce, strings, describeCell: describeCellAt },
+      onComplete: ([targetPos]) => {
         activeSelector = null;
         boardKeyHandler = onBoardKey;
-        // Déplace le curseur sur la case confirmée avant toute annonce.
         const { x, y } = indexToXY(targetPos);
         boardX = x;
         boardY = y;
@@ -460,64 +459,81 @@ export function createCombatScene() {
         const resultMsg = result.success
           ? (strings?.maneuver?.swapDone ?? 'Swap done.')
           : (resolveKey(result.reason) ?? result.reason ?? '');
-        updateView(); // applique applyBoardCursor + état du plateau
+        updateView();
         say(`${resultMsg} ${describeCell()}`);
       },
       onCancel: () => {
         activeSelector = null;
         boardKeyHandler = onBoardKey;
-        // Curseur inchangé ; annonce l'annulation + la case courante.
         say(`${strings?.maneuver?.cancelled ?? 'Cancelled.'} ${describeCell()}`);
       },
-      initialPosition: sourcePos,
     });
 
-    boardKeyHandler = activeSelector.handleKey;
-    activeSelector.open();
+    activeSelector = resolver;
+    boardKeyHandler = (e) => resolver.handleKey(e);
     controller.activate(2, { silent: true }); // zone Plateau = index 2
+    resolver.start();
   }
 
-  // --- Sélecteur de zone (test Maj+S) ----------------------------------------
+  // --- Test de ciblage multi-étapes (Maj+S, debug) ----------------------------
+  //
+  // Séquence à deux étapes dépendantes :
+  //   Étape 1 (area)  : choisir une zone occupée par un pouvoir.
+  //   Étape 2 (list)  : choisir une zone ADJACENTE à celle de l'étape 1,
+  //                     parmi celles qui contiennent elles aussi un pouvoir.
+  // Vérifie : l'étape 2 ne propose que des cibles valides au regard de l'étape 1 ;
+  //   Échap à l'étape 2 recule à l'étape 1 ; Échap à l'étape 1 annule tout.
+  // Aucun effet de jeu appliqué, aucune ressource consommée.
 
-  /**
-   * Ouvre le sélecteur de zone pour test. La zone centre (4) est interdite,
-   * les 4 adjacentes orthogonales sont sélectionnables, les autres hors portée.
-   * Maj+S : raccourci temporaire de débogage uniquement.
-   */
-  function openTestZoneSelector() {
+  function openDebugTargetingTest() {
     if (activeSelector) activeSelector.close();
 
-    const ADJACENT = new Set([1, 3, 5, 7]);
-    activeSelector = createZoneSelector({
-      tdByIndex,
-      strings: context.strings,
-      announce: context.announce,
-      getZoneState: (pos) => {
-        if (pos === 4) return { status: 'forbidden' };
-        if (ADJACENT.has(pos)) return { status: 'selectable' };
-        return { status: 'out_of_range' };
-      },
-      describeCell: describeCellAt,
-      openMessage: context.strings?.zoneSelector?.testOpen
-        ?? 'Sélection de zone. Flèches pour naviguer, Entrée pour confirmer, Échap pour annuler.',
-      forbiddenPrefix: context.strings?.zoneSelector?.testForbidden ?? 'Zone centrale interdite',
-      onConfirm: (pos) => {
+    const strings = context.strings;
+    const t = strings?.targeting ?? {};
+
+    const resolver = createTargetingResolver({
+      steps: [
+        {
+          targetType:      'area',
+          label:           t.debugStep1 ?? 'Debug targeting step 1/2: pick a zone with a power.',
+          forbiddenPrefix: t.debugForbidden ?? 'No power',
+          initialPosition: boardIndexAt(boardX, boardY),
+          getZoneState: (pos) => (state.board[pos]?.power
+            ? { status: 'selectable' }
+            : { status: 'forbidden', label: t.debugForbidden ?? 'No power' }),
+        },
+        {
+          targetType:  'list',
+          label:       (collected) => format(
+            t.debugStep2 ?? 'Debug targeting step 2/2: pick an adjacent zone.',
+            { pos: collected[0] },
+          ),
+          autoSelect:  false,
+          emptyLabel:  t.debugEmpty ?? 'No adjacent powers.',
+          getItems:    (collected) => reachablePositions(collected[0], 1)
+            .filter((p) => state.board[p]?.power)
+            .map((p) => ({ pos: p, power: state.board[p].power })),
+          describeItem: (item, strs) => `Zone ${item.pos} : ${powerName(item.power, strs)}`,
+        },
+      ],
+      resolveContext: { tdByIndex, announce: context.announce, strings, describeCell: describeCellAt },
+      onComplete: ([sourcePos, item]) => {
         activeSelector = null;
         boardKeyHandler = onBoardKey;
-        say(`${context.strings?.zoneSelector?.confirmed ?? 'Zone confirmée'} : ${describeCellAt(pos)}`);
+        say(format(t.debugDone ?? 'Debug done: {z1} then {z2}.', { z1: sourcePos, z2: item.pos }));
         updateView();
       },
       onCancel: () => {
         activeSelector = null;
         boardKeyHandler = onBoardKey;
-        say(context.strings?.zoneSelector?.cancelled ?? 'Sélection annulée.');
+        say(t.debugCancelled ?? 'Debug targeting test cancelled.');
       },
-      initialPosition: 3,
     });
 
-    boardKeyHandler = activeSelector.handleKey;
-    activeSelector.open();
+    activeSelector = resolver;
+    boardKeyHandler = (e) => resolver.handleKey(e);
     controller.activate(2, { silent: true }); // zone Plateau = index 2
+    resolver.start();
   }
 
   // --- Stratégie : remplacement d'un pouvoir ------------------------------------
@@ -527,58 +543,69 @@ export function createCombatScene() {
    * Vérifie toutes les conditions avant d'ouvrir toute interface.
    * @param {number} sourcePos  index 0–8 de la zone source
    */
-  function openStrategyUI(sourcePos) {
-    const strings = context.strings;
-    const power = state.board[sourcePos]?.power;
+  // La stratégie s'exprime comme une séquence de ciblage à deux étapes dépendantes :
+  //   Étape 1 (area) : sélectionner la zone dont le pouvoir sera remplacé.
+  //     isValid utilise canUseStrategySource — même logique qu'avant.
+  //   Étape 2 (list) : choisir le remplaçant dans la pioche filtrée par buildCandidates,
+  //     dont le résultat dépend de la zone choisie à l'étape 1.
+  // Le point de stratégie n'est consommé qu'en onComplete, après validation complète.
 
-    if (!power) {
-      say(strings?.strategy?.empty ?? 'No power in this area.');
-      return;
-    }
+  function openStrategyUI(initialSourcePos) {
+    const strings = context.strings;
+
     if (state.duo.strategy < 1) {
       say(strings?.strategy?.no_points ?? 'No strategy points.');
       return;
     }
 
-    const sourceCheck = canUseStrategySource(state, power, sourcePos);
-    if (!sourceCheck.allowed) {
-      const msg = resolveKey(sourceCheck.reason) ?? sourceCheck.reason ?? '';
-      const src = sourceCheck.sources.length > 0 ? ` (${sourceCheck.sources.join(', ')})` : '';
-      say(msg + src);
-      return;
-    }
-
-    const candidates = buildCandidates(state, sourcePos);
-    if (candidates.length === 0) {
-      say(strings?.strategy?.no_candidates ?? 'No replacement available.');
-      return;
-    }
-
-    function applyStrategy(chosen) {
-      executeStrategy(state, sourcePos, chosen);
-      updateView();
-      say(`${strings?.strategy?.done ?? 'Strategy applied.'} ${describeCell()}`);
-    }
-
-    // 1 seul candidat → sélection automatique, pas de menu.
-    if (candidates.length === 1) {
-      applyStrategy(candidates[0]);
-      return;
-    }
-
-    // Plusieurs candidats → menu de sélection linéaire.
     if (activeSelector) activeSelector.close();
 
-    activeSelector = createStrategyPicker({
-      items: candidates,
-      getLabel: (p) => longDescription(p, strings),
-      announce: say,
-      openMessage: strings?.strategy?.pickTitle
-        ?? 'Choose a replacement. Arrow keys to navigate, Enter to confirm, Escape to cancel.',
-      onConfirm: (chosen) => {
+    const resolver = createTargetingResolver({
+      steps: [
+        {
+          targetType:      'area',
+          label:           strings?.strategy?.selectSource
+                             ?? 'Select a power to replace. Arrow keys, Enter to confirm, Escape to cancel.',
+          forbiddenPrefix: strings?.strategy?.sourceForbidden ?? 'Cannot replace',
+          initialPosition: initialSourcePos,
+          getZoneState: (pos) => {
+            const power = state.board[pos]?.power;
+            if (!power) return {
+              status: 'forbidden',
+              label: strings?.strategy?.empty ?? 'No power in this area.',
+            };
+            const check = canUseStrategySource(state, power, pos);
+            if (check.allowed) return { status: 'selectable' };
+            const label = resolveKey(check.reason) ?? (strings?.strategy?.sourceForbidden ?? 'Cannot replace');
+            return { status: 'forbidden', label, sources: check.sources };
+          },
+        },
+        {
+          targetType:  'list',
+          label: (collected) => {
+            const srcPower = state.board[collected[0]]?.power;
+            return format(
+              strings?.strategy?.pickTitle
+                ?? 'Choose a replacement for {name}. Arrow keys, Enter to confirm, Escape to cancel.',
+              { name: srcPower ? powerName(srcPower, strings) : '' },
+            );
+          },
+          autoSelect:   true,
+          emptyLabel:   strings?.strategy?.no_candidates ?? 'No replacement available.',
+          getItems:     (collected) => buildCandidates(state, collected[0]),
+          describeItem: (item, strs) => longDescription(item, strs),
+        },
+      ],
+      resolveContext: { tdByIndex, announce: context.announce, strings, describeCell: describeCellAt },
+      onComplete: ([sourcePos, chosenPower]) => {
         activeSelector = null;
         boardKeyHandler = onBoardKey;
-        applyStrategy(chosen);
+        executeStrategy(state, sourcePos, chosenPower);
+        const { x, y } = indexToXY(sourcePos);
+        boardX = x;
+        boardY = y;
+        updateView();
+        say(`${strings?.strategy?.done ?? 'Strategy applied.'} ${describeCell()}`);
       },
       onCancel: () => {
         activeSelector = null;
@@ -587,9 +614,10 @@ export function createCombatScene() {
       },
     });
 
-    boardKeyHandler = activeSelector.handleKey;
-    activeSelector.open();
+    activeSelector = resolver;
+    boardKeyHandler = (e) => resolver.handleKey(e);
     controller.activate(2, { silent: true }); // zone Plateau = index 2
+    resolver.start();
   }
 
   function onBoardKey(event) {
@@ -847,10 +875,10 @@ export function createCombatScene() {
 
       // Raccourcis globaux (fin de tour + annonces + emplacements 1–9 + Maj+S test).
       onKeydown = (event) => {
-        // Maj+S : ouvre le sélecteur de zone de test (debug uniquement).
+        // Maj+S : ouvre le test de ciblage multi-étapes (debug uniquement).
         if (event.key === 'S' && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
           event.preventDefault();
-          openTestZoneSelector();
+          openDebugTargetingTest();
           return;
         }
         const binding = matchKeybinding(event);

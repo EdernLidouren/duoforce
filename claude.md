@@ -41,3 +41,6 @@ No history, no URL routing, code-driven navigation only.
 ## Language
 - Code, comments, identifiers: English
 - Conversation with the user: always match the user's language
+
+## Language pack strings
+- French strings that contain an apostrophe (`'`) must use double quotes as the JS string delimiter to avoid a SyntaxError (e.g. `"Boost d'attaque"`). Always apply this when writing or editing `data/languagepacks/fr/index.js`.

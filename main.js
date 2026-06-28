@@ -31,6 +31,7 @@ import { createGameScene } from './src/scenes/game.js';
 import { createGameOverScene } from './src/scenes/gameover.js';
 import { createCombatScene } from './src/scenes/combat.js';
 import { debug } from './src/config/debug.js';
+import { runGadgetTest } from './src/debug/gadgetTest.js';
 
 async function bootstrap() {
   const root = document.getElementById('app');
@@ -75,6 +76,9 @@ async function bootstrap() {
   router.register('confirm',      createConfirmScene());
   router.register('save-manager', createSaveManagerScene());
   router.register('options',      createOptionsScene());
+
+  // Tests de debug (gadget system).
+  if (debug.enabled) runGadgetTest();
 
   // Navigation initiale.
   router.go('menu');

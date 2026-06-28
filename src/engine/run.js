@@ -16,7 +16,8 @@
 //
 // Aucun DOM, aucun import depuis src/ui/.
 
-import { STARTING_CREDIT } from './gameState.js';
+import { STARTING_CREDIT, DEFAULT_GADGET_SLOTS } from './gameState.js';
+import { serializeGadget, deserializeGadget }    from './gadgets.js';
 import { getHeroById } from '../data/heroes/index.js';
 import { getEnemyById } from '../data/enemies/index.js';
 import { GAME_VERSION, SAVE_FORMAT_VERSION } from '../config/version.js';
@@ -164,11 +165,12 @@ export function createRun({ heroes, seed }) {
     ?? ((Math.random() * 0x100000000) >>> 0);
   const maxHp = heroes.reduce((sum, h) => sum + (h.hp ?? 0), 0);
   return {
-    progression: { round: 1, phase: 1 },
-    heroes: heroes.map((h) => ({ ...h })),
-    gadgets:   [],
-    sidekicks: [],
-    abilities: [],
+    progression:  { round: 1, phase: 1 },
+    heroes:       heroes.map((h) => ({ ...h })),
+    gadgets:      [],
+    gadgetSlots:  DEFAULT_GADGET_SLOTS,
+    sidekicks:    [],
+    abilities:    [],
     hp:     maxHp,
     maxHp,
     credit: STARTING_CREDIT,
@@ -193,7 +195,8 @@ export function serialize(run) {
     seed:        run.seed,
     progression: { ...run.progression },
     heroes:   run.heroes.map((h) => ({ id: h.id })),
-    gadgets:  run.gadgets.map((g)  => ({ id: g.id })),
+    gadgets:     run.gadgets.map(serializeGadget),
+    gadgetSlots: run.gadgetSlots ?? DEFAULT_GADGET_SLOTS,
     sidekicks: run.sidekicks.map((s) => ({ id: s.id })),
     abilities: run.abilities.map((a) => ({ id: a.id })),
     hp:     run.hp,
@@ -226,9 +229,10 @@ export function deserialize(saveObject) {
   return {
     progression: { ...saveObject.progression },
     heroes,
-    gadgets:   [],
-    sidekicks: [],
-    abilities: [],
+    gadgets:     (saveObject.gadgets ?? []).map(deserializeGadget).filter(Boolean),
+    gadgetSlots: saveObject.gadgetSlots ?? DEFAULT_GADGET_SLOTS,
+    sidekicks:   [],
+    abilities:   [],
     hp:     saveObject.hp,
     maxHp,
     credit: saveObject.credit,

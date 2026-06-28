@@ -82,6 +82,11 @@ export const KEYBINDINGS = {
     key: 't',
     descriptionId: 'keybinding_turn',
   },
+  GADGET_ZONE: {
+    id: 'gadget_zone',
+    key: 'g',
+    descriptionId: 'keybinding_gadget_zone',
+  },
 };
 
 /**

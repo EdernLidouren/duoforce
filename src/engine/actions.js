@@ -166,6 +166,7 @@ function dispatch(combatState, action) {
     case 'discard_power':  execDiscardPower(combatState, action);        break;
     case 'place_power':    execPlacePower(combatState, action);          break;
     case 'spend_strategy': execSpendStrategy(combatState, action);       break;
+    case 'heal':           execHeal(combatState, action);                break;
     // 'draw_power'  : validation uniquement, pas d'exécuteur.
     // 'move_power'  : exécuteur à venir (déplacement unilatéral, sans cible).
     default: break;
@@ -210,6 +211,14 @@ function execDealDamage(combatState, action) {
   const subject = combatState[action.target];
   if (!subject || typeof action.value !== 'number') return;
   subject.hp -= action.value; // imblocable par défaut ; la défense n'absorbe pas
+}
+
+/** Soigne une cible (duo ou ennemi) jusqu'à son maxHp. */
+function execHeal(combatState, action) {
+  const subject = combatState[action.target];
+  if (!subject || typeof action.value !== 'number') return;
+  const max = subject.maxHp ?? Infinity;
+  subject.hp = Math.min(max, subject.hp + action.value);
 }
 
 function execAddStat(combatState, action, stat) {

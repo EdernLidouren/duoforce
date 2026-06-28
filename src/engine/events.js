@@ -77,3 +77,17 @@ export function clearTurnLog(combatState) {
 export function clearCombatLog(combatState) {
   ensureStore(combatState).combat = [];
 }
+
+/**
+ * Émet un event directement dans le journal de progression (sans journal de tour
+ * ni de combat). À utiliser pour les events de run (gadgets, hub) émis hors combat.
+ * @param {string} type
+ * @param {object} [data]
+ * @param {number|null} [turn]
+ * @returns {{ type, turn, data }}
+ */
+export function emitProgressionEvent(type, data = {}, turn = null) {
+  const event = { type, turn, data };
+  progressionLog.push(event);
+  return event;
+}
