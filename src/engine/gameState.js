@@ -7,6 +7,33 @@
 //
 // Aucun DOM, aucune dépendance.
 
+/**
+ * Enum des phases de combat.
+ * La phase courante est stockée dans combatState.phase (source de vérité unique).
+ * Toute écriture doit passer par setPhase() (src/engine/combatPhases.js).
+ *
+ * Séquence d'un tour normal :
+ *   (premiere fois) initialization → distribution → play
+ *   (tours suivants) play → [joueur valide] → resolution → duo → enemy
+ *                    → turn_end → distribution → play → …
+ */
+export const COMBAT_PHASES = {
+  /** Lancement du combat, avant la première distribution. Point d'accroche "début de combat". */
+  INITIALIZATION: 'initialization',
+  /** Défausse du plateau, mélange si besoin, distribution de 9 pouvoirs. Point d'accroche "début de tour". */
+  DISTRIBUTION:   'distribution',
+  /** Phase principale : le joueur peut agir (manœuvres, stratégies, gadgets). */
+  PLAY:           'play',
+  /** Lecture du plateau, activation des pouvoirs, défausse du plateau. */
+  RESOLUTION:     'resolution',
+  /** Application de l'attaque du duo contre l'ennemi. */
+  DUO:            'duo',
+  /** Application de l'attaque de l'ennemi contre le duo. */
+  ENEMY:          'enemy',
+  /** Phase mécaniquement vide. Point d'accroche "fin de tour". */
+  TURN_END:       'turn_end',
+};
+
 /** Nombre de cases du plateau (grille 3×3). */
 export const BOARD_SIZE = 9;
 

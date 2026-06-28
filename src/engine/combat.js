@@ -21,6 +21,7 @@ import { processTurnEnd, applyStatus } from './statuses.js';
 import { createEventStore, clearTurnLog, clearCombatLog } from './events.js';
 import { processPerksTurnEnd } from './perks.js';
 import { initInterceptors } from './actions.js';
+import { setPhase } from './combatPhases.js';
 import { getPowerById } from '../data/powers/index.js';
 import { getPerkById } from '../data/perks/index.js';
 import { HEROES } from '../data/heroes/index.js';
@@ -35,6 +36,7 @@ import {
   DEFAULT_ENEMY_ATTACK,
   DEFAULT_ENEMY_DEFENSE,
   EXILE_REFILL_HP_PENALTY_RATIO,
+  COMBAT_PHASES,
 } from './gameState.js';
 
 // --- Utilitaires ------------------------------------------------------------
@@ -248,6 +250,8 @@ export function initCombat({ heroes = HEROES.slice(0, 2), enemy = {}, duoHp, duo
   clearCombatLog(state);
   // Pipeline d'actions : réinitialise les intercepteurs pour ce combat.
   initInterceptors();
+  // Phase initiale : point d'accroche "début de combat" (une fois par combat).
+  setPhase(state, COMBAT_PHASES.INITIALIZATION);
   return state;
 }
 
@@ -286,8 +290,12 @@ export function startTurn(state) {
     state.board[RESOLUTION_ORDER[k]].power = power;
   });
 
-  // Nouveau tour : journal du tour vidé (la résolution à venir le repeuplera).
+  // Nouveau tour : journal vidé en premier (les events de phase ci-dessous
+  // apparaissent dans le journal du nouveau tour, avec le numéro mis à jour).
   clearTurnLog(state);
+
+  // Phase DISTRIBUTION : point d'accroche "début de tour".
+  setPhase(state, COMBAT_PHASES.DISTRIBUTION);
 
   // Gain de ressources jusqu'aux valeurs par défaut (top-up, sans réduire).
   state.duo.maneuver = Math.max(state.duo.maneuver, DEFAULT_MANEUVERS);
@@ -298,10 +306,30 @@ export function startTurn(state) {
   state.duo.defense = 0;
   evaluateEnemy(state);
 
+  // Phase PLAY : le joueur peut agir.
+  setPhase(state, COMBAT_PHASES.PLAY);
+
   return state;
 }
 
 // --- Résolution d'un tour ---------------------------------------------------
+
+/**
+ * Vérifie les conditions de fin de combat (victoire / défaite) et met à jour
+ * state.status. Appelé à la fin de chaque phase pour éviter d'enchaîner sur des
+ * phases sans effet observable quand l'issue est déjà connue.
+ *
+ * Priorité : la victoire prime sur la défaite (cas rare où les deux PV tombent
+ * à 0 simultanément, ex. effet de résolution qui tue les deux camps).
+ *
+ * Ne fait rien si state.status est déjà résolu.
+ * @param {object} state
+ */
+function checkOutcome(state) {
+  if (state.status !== 'ongoing') return;
+  if (state.enemy.hp <= 0) { state.enemy.hp = 0; state.status = 'won';  return; }
+  if (state.duo.hp   <= 0) { state.duo.hp   = 0; state.status = 'lost'; }
+}
 
 /**
  * Applique des dégâts à une cible. La défense absorbe en priorité :
@@ -336,53 +364,56 @@ export function resolveTurn(state) {
     return { activations: [], damageToEnemy: 0, damageToDuo: 0, status: state.status };
   }
 
-  // Résolution sur une copie de travail ; on commet ici les valeurs obtenues
-  // (les helpers ont déjà mutué la copie : sommes, multiplicateurs, soins,
-  // ressources, modificateurs de statuts...).
+  // --- Phase RESOLUTION -------------------------------------------------------
+  // resolveBoard est couvert par MAX_RESOLUTION_STEPS contre les chaînes
+  // d'effets non bornées (ex. perk qui relance une activation en boucle).
+  setPhase(state, COMBAT_PHASES.RESOLUTION);
+
   const r = resolveBoard(state.board, state, { emit: true });
-  state.duo.attack = r.duo.attack;
-  state.duo.defense = r.duo.defense;
-  state.duo.maneuver = r.duo.maneuver;
-  state.duo.strategy = r.duo.strategy;
-  state.duo.credit = r.duo.credit;
-  state.duo.hp = r.duo.hp;          // soins du duo déjà appliqués (plafonnés)
-  state.enemy.attack = r.enemy.attack;
+  state.duo.attack    = r.duo.attack;
+  state.duo.defense   = r.duo.defense;
+  state.duo.maneuver  = r.duo.maneuver;
+  state.duo.strategy  = r.duo.strategy;
+  state.duo.credit    = r.duo.credit;
+  state.duo.hp        = r.duo.hp;     // soins déjà appliqués (plafonnés)
+  state.enemy.attack  = r.enemy.attack;
   state.enemy.defense = r.enemy.defense;
-  state.enemy.hp = r.enemy.hp;      // soin de l'ennemi déjà appliqué
+  state.enemy.hp      = r.enemy.hp;   // soin ennemi déjà appliqué
 
-  // Phase du duo : l'attaque du duo frappe l'ennemi ; sa défense absorbe en
-  // priorité, le surplus réduit ses PV.
-  const damageToEnemy = applyDamage(state.enemy, state.duo.attack);
-  let damageToDuo = 0;
-  if (state.enemy.hp <= 0) {
-    state.enemy.hp = 0;
-    state.status = 'won';
-  } else {
-    // Phase ennemie : l'attaque ennemie frappe le duo.
-    damageToDuo = applyDamage(state.duo, state.enemy.attack);
-    if (state.duo.hp <= 0) {
-      state.duo.hp = 0;
-      state.status = 'lost';
-    }
-  }
+  // Un effet de résolution (dégât direct, soin qui amène les PV à 0) peut
+  // avoir résolu le combat avant même la phase duo.
+  checkOutcome(state);
 
-  // Fin de tour : statuts (poison, décréments de durée, expirations...) puis
-  // signatures (perks onTurnEnd).
-  processTurnEnd(state);
-  processPerksTurnEnd(state);
+  let damageToEnemy = 0;
+  let damageToDuo   = 0;
 
-  // Commit des statuts de zone appliqués pendant la résolution (gel, ancrage...).
-  // Fait APRÈS processTurnEnd : ils ne sont donc pas décrémentés ce tour et
-  // deviennent actifs au tour suivant (persistance sur la case). L'immunité
-  // (iron_will) est respectée par applyStatus selon le pouvoir occupant la case.
-  for (const app of r.areaStatuses ?? []) {
-    applyStatus(state, { id: app.statusId, stacks: app.stacks, target: 'area', position: app.position });
-  }
-
-  // Un statut ou une signature a pu faire tomber des PV : ré-évaluer l'issue.
+  // --- Phase DUO (ignorée si combat déjà résolu) ------------------------------
   if (state.status === 'ongoing') {
-    if (state.enemy.hp <= 0) { state.enemy.hp = 0; state.status = 'won'; }
-    else if (state.duo.hp <= 0) { state.duo.hp = 0; state.status = 'lost'; }
+    setPhase(state, COMBAT_PHASES.DUO);
+    damageToEnemy = applyDamage(state.enemy, state.duo.attack);
+    checkOutcome(state);
+  }
+
+  // --- Phase ENEMY (ignorée si combat déjà résolu) ----------------------------
+  if (state.status === 'ongoing') {
+    setPhase(state, COMBAT_PHASES.ENEMY);
+    damageToDuo = applyDamage(state.duo, state.enemy.attack);
+    checkOutcome(state);
+  }
+
+  // --- Phase TURN_END (ignorée si combat déjà résolu) -------------------------
+  // Statuts (poison, décréments, expirations…) puis signatures (perks onTurnEnd).
+  // Les statuts de zone sont committés ici : non décrémentés ce tour, actifs
+  // au suivant. Inutile de les persister si le combat est déjà terminé.
+  if (state.status === 'ongoing') {
+    setPhase(state, COMBAT_PHASES.TURN_END);
+    processTurnEnd(state);
+    processPerksTurnEnd(state);
+    for (const app of r.areaStatuses ?? []) {
+      applyStatus(state, { id: app.statusId, stacks: app.stacks, target: 'area', position: app.position });
+    }
+    // Un statut ou une signature a pu résoudre le combat pendant TURN_END.
+    checkOutcome(state);
   }
 
   return {

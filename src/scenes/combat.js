@@ -43,6 +43,8 @@ import { turnMessages, resolutionMessages, turnStartMessage, perkActivationMessa
 import { BOARD_ROWS, indexToXY, xyToIndex, describeBoardCell } from '../ui/boardText.js';
 import { createTargetingResolver } from '../ui/targeting.js';
 import { canStartManeuver, canManeuverFrom, executeManeuver, reachablePositions } from '../engine/maneuver.js';
+import { canPlayerAct } from '../engine/combatPhases.js';
+import { getEvents } from '../engine/events.js';
 import { validateAction, createAction } from '../engine/actions.js';
 import { canRemove, canDiscard } from '../engine/powerActions.js';
 import { buildCandidates, executeStrategy, canUseStrategySource } from '../engine/strategy.js';
@@ -415,6 +417,10 @@ export function createCombatScene() {
    * @param {number} sourcePos  index 0–8 de la zone source
    */
   function openManeuverSelector(sourcePos) {
+    if (!canPlayerAct(state)) {
+      say(context.strings?.combat?.wrongPhase ?? 'Cannot act at this time.');
+      return;
+    }
     if (activeSelector) activeSelector.close();
 
     const strings = context.strings;
@@ -553,6 +559,10 @@ export function createCombatScene() {
   function openStrategyUI(initialSourcePos) {
     const strings = context.strings;
 
+    if (!canPlayerAct(state)) {
+      say(strings?.combat?.wrongPhase ?? 'Cannot act at this time.');
+      return;
+    }
     if (state.duo.strategy < 1) {
       say(strings?.strategy?.no_points ?? 'No strategy points.');
       return;
@@ -793,11 +803,23 @@ export function createCombatScene() {
       return;
     }
 
+    // Debug : capturer les phases de résolution avant que startTurn ne vide le journal.
+    let debugResPhases = null;
+    if (context.debug?.enabled) {
+      debugResPhases = getEvents(state, 'phase_changed', 'turn').map((e) => e.data.phase);
+    }
+
     // 4) Tour suivant.
     startTurn(state);
     estimator.invalidate();
     pushMessage(turnStartMessage(state.turn, context.strings));
     updateView();
+
+    // Debug : phases du tour complet (résolution + distribution + jeu).
+    if (context.debug?.enabled && debugResPhases) {
+      const distPhases = getEvents(state, 'phase_changed', 'turn').map((e) => e.data.phase);
+      console.log('[DEBUG phases] tour complet :', [...debugResPhases, ...distPhases].join(' → '));
+    }
   }
 
   /** Aiguille un raccourci global vers l'action correspondante. */
@@ -868,6 +890,12 @@ export function createCombatScene() {
       context.root.replaceChildren(appEl);
       controller.mount(); // active la zone par défaut (plateau), focus seul
       updateView();
+
+      // Debug : phases de l'initialisation et du premier tour.
+      if (context.debug?.enabled) {
+        const initPhases = getEvents(state, 'phase_changed', 'turn').map((e) => e.data.phase);
+        console.log('[DEBUG phases] initialisation :', initPhases.join(' → '));
+      }
 
       // Annonce d'accueil : instructions + contenu de la zone active (plateau).
       const L = labels();

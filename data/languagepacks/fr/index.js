@@ -60,6 +60,7 @@ export default {
       boss: 'combat de boss',
     },
     turnAnnounce: 'Tour {turn}, {combatType} contre {enemy}.',
+    wrongPhase: 'Action impossible pour le moment.',
   },
 
   // Ressources : nom / message d'affichage / message d'aide, distincts.
@@ -355,6 +356,7 @@ export default {
       no_source_power: "Il n'y a pas de pouvoir dans cette zone.",
       out_of_range: 'Cette zone est hors de portée.',
       no_maneuver: "Vous n'avez plus de manœuvres.",
+      wrong_phase: 'Action impossible dans cette phase de combat.',
     },
   },
 

@@ -57,6 +57,7 @@ export default {
       boss: 'boss combat',
     },
     turnAnnounce: 'Turn {turn}, {combatType} against {enemy}.',
+    wrongPhase: 'Cannot act at this time.',
   },
 
   resources: {
@@ -346,6 +347,7 @@ export default {
       no_source_power: 'There is no power in this area.',
       out_of_range: 'This area is out of range.',
       no_maneuver: 'You have no maneuvers left.',
+      wrong_phase: 'Action not allowed in this combat phase.',
     },
   },
 

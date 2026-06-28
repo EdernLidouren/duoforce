@@ -16,6 +16,7 @@ import { STRATEGY_PICK } from './gameState.js';
 import { canRemove, canDiscard, canPlace, canDraw } from './powerActions.js';
 import { createAction, executeAction } from './actions.js';
 import { reconstituteDeck } from './combat.js';
+import { canPlayerAct } from './combatPhases.js';
 
 // --- Vérification de la source -----------------------------------------------
 
@@ -82,6 +83,7 @@ export function buildCandidates(state, sourcePos) {
  * @param {object} chosenPower  pouvoir remplaçant (référence issue de state.deck)
  */
 export function executeStrategy(state, sourcePos, chosenPower) {
+  if (!canPlayerAct(state)) return;
   const sourcePower = state.board[sourcePos].power;
 
   executeAction(state, createAction('remove_power',  { source: sourcePower, target: sourcePos }));

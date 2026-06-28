@@ -168,3 +168,61 @@ après validation complète des deux étapes.
 
 Annuler à l'étape 2 (Échap) revient à l'étape 1 sans rien consommer.
 Annuler à l'étape 1 (Échap) annule tout sans rien consommer.
+
+## Phases de combat et ciblage
+
+Le resolver est agnostique des phases — il ne lit pas `combatState.phase`. C'est
+l'appelant qui vérifie la phase **avant d'ouvrir une séquence**, via
+`canPlayerAct(combatState)`.
+
+### Règle : ouvrir une séquence seulement pendant `play`
+
+Toute action déclenchée par le joueur (manœuvre, stratégie, gadget) doit
+vérifier `canPlayerAct` avant d'appeler `resolver.start()` :
+
+```js
+// Vérification dans l'UI (retour immédiat avant d'ouvrir le resolver) :
+if (!canPlayerAct(state)) {
+  say(strings.combat.wrongPhase);
+  return;
+}
+// … construire le resolver …
+resolver.start();
+```
+
+La fonction d'exécution dans le moteur (ex. `executeManeuver`, `executeStrategy`)
+répète la vérification comme garde robuste — pour le cas où la séquence aurait
+été ouverte en dehors du flux normal.
+
+### Effets et phases
+
+Les effets exécutés dans `onComplete` se produisent **toujours pendant `play`**
+(puisque `canPlayerAct` est vérifié à l'ouverture). Un effet ne devrait pas lire
+`combatState.phase` pour distinguer son comportement sauf cas de design explicite.
+
+Pour un effet actif sur plusieurs phases (mécanique de trigger futur) :
+
+```js
+import { isPhaseActiveFor } from '../engine/combatPhases.js';
+import { COMBAT_PHASES } from '../engine/gameState.js';
+
+// Exemple : effet "début de tour ou jeu" — n'est pas dans onComplete, c'est
+// un trigger passif branché sur phase_changed.
+if (isPhaseActiveFor(state, [COMBAT_PHASES.DISTRIBUTION, COMBAT_PHASES.PLAY])) {
+  applyPassiveEffect(state);
+}
+```
+
+Voir `docs/combat-phases.md` pour la liste complète des phases et leur sémantique.
+
+## Contrat complet appelant/resolver
+
+| Responsabilité | Resolver | Appelant |
+|---|---|---|
+| Orchestrer les étapes | ✓ | |
+| Gérer Échap (annulation en pile) | ✓ | |
+| Vérifier la phase avant d'ouvrir | | ✓ (`canPlayerAct`) |
+| Consommer les ressources | | ✓ (dans `onComplete` seulement) |
+| Exécuter les actions de jeu | | ✓ (dans `onComplete` seulement) |
+| Annoncer l'annulation | | ✓ (dans `onCancel`) |
+| Ne rien consommer en cas d'annulation | ✓ (garantit le non-appel de onComplete) | ✓ (onCancel ne consomme pas) |

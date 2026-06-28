@@ -13,7 +13,7 @@ The gadget system is split across three prompts:
 |--------|-------|
 | **1 — Data layer** | Model, inventory, events — no usage interface |
 | **2 — Hub usage** ✓ | Listing and using gadgets from the secret base |
-| **3 — Combat usage** | Listing and using gadgets during combat turns |
+| **3 — Combat usage** | Listing and using gadgets during combat turns (see below) |
 
 ---
 
@@ -368,3 +368,124 @@ Powers and perks that count events (e.g. `createEffectCounter`) reset between
 combats because their counters live in `combatState`. A gadget that recharges
 over multiple combats needs run-persistent state — storing `{ value, max }` in
 the gadget instance is the natural solution, and matches the serialization model.
+
+---
+
+## Combat usage interface (Prompt 3)
+
+### Phase constraint
+
+Gadgets may only be used during the `play` phase (`canPlayerAct(combatState)` returns `true`).
+This mirrors the constraint on maneuvers and strategies.
+
+The engine function that executes a gadget in combat (`executeGadget` — to be written
+in Prompt 3) **must** call `canPlayerAct(combatState)` before doing anything else,
+as a hard guard independent of the UI.
+
+The UI also checks `canPlayerAct` before opening the usage flow, to give
+immediate feedback without entering a selector.
+
+```js
+// Pattern attendu pour executeGadget (Prompt 3) :
+import { canPlayerAct } from './combatPhases.js';
+
+export function executeGadget(combatState, run, gadget) {
+  if (!canPlayerAct(combatState)) return;
+  // … appliquer les actions du gadget via executeAction …
+}
+```
+
+### Targeting (system integration)
+
+Gadgets that require a target (zone, hero, list…) use the **TargetingResolver**
+from `src/ui/targeting.js`. See `docs/targeting-system.md` for the complete API.
+
+#### Gadgets without a target
+
+The gadget's `actions` are applied directly via `executeAction(combatState, action)`.
+No targeting step needed — the effect is immediate (e.g. "heal duo by 5").
+
+```js
+// Example: gadget with target: 'duo' — no targeting step
+{ type: 'heal', target: 'duo', value: 5 }
+```
+
+#### Gadgets with a board target (`targetType: 'area'`)
+
+One targeting step of type `'area'` is added to the resolver. The `getZoneState`
+callback filters valid positions according to the gadget's effect rules (e.g.
+"zone with a power", "adjacent to another zone", etc.).
+
+```js
+// Example: gadget that applies a status to a chosen zone
+createTargetingResolver({
+  steps: [{
+    targetType: 'area',
+    label: strings.gadgets.pickZone,
+    getZoneState: (pos, _collected, ctx) => {
+      const area = ctx.state.board[pos];
+      if (!area.power) return { status: 'forbidden', label: strings.gadgets.emptyZone };
+      return { status: 'selectable' };
+    },
+    isValid: (pos) => combatState.board[pos].power != null,
+  }],
+  resolveContext: { tdByIndex, strings, announce, describeCell, state: combatState },
+  onComplete: ([pos]) => {
+    executeAction(combatState, createAction('apply_status', { target: 'area', position: pos, … }));
+    if (gadget.consumable) removeGadget(run, index, 'used');
+    updateView();
+  },
+  onCancel: () => { /* nothing consumed */ },
+});
+```
+
+#### Gadgets with a list target (`targetType: 'list'`)
+
+One targeting step of type `'list'`. `getItems` returns the available choices.
+If the list has 0 items, `emptyLabel` is announced and `onCancel` is called
+without consuming the gadget.
+
+#### Multi-step gadgets
+
+Steps may be combined freely. Each step receives `collectedTargets` from prior
+steps, enabling dependent logic (e.g. step 2 offers options based on step 1's
+chosen zone).
+
+#### Consumption rule
+
+**The gadget is consumed only inside `onComplete`**, after the full sequence
+succeeds. `onCancel` (from any step, including Escape at step 0) must not
+consume the gadget or apply any effect.
+
+```js
+onComplete: (collectedTargets) => {
+  // 1. Apply effects
+  gadget.actions.forEach(action => executeAction(combatState, action));
+  // 2. Consume after success
+  if (gadget.consumable) removeGadget(run, index, 'used');
+  updateView();
+},
+onCancel: () => {
+  // Nothing — user backed out, no effect, no consumption
+},
+```
+
+### Phases where gadget effects apply
+
+A gadget's `actions` execute immediately when `onComplete` fires — always during
+the `play` phase (since `canPlayerAct` was checked upfront). Gadgets do not have
+a dedicated phase; their effects land in `play` and are reflected in the combat
+state before the player validates the turn.
+
+Effects that reference `combatState.phase` (e.g. "bonus if used on turn 1") may
+use `isPhaseActiveFor(state, [COMBAT_PHASES.PLAY])` or read
+`getPhase(state)` directly. See `docs/combat-phases.md`.
+
+### Language pack keys (Prompt 3, to add)
+
+| Key path | Purpose |
+|---|---|
+| `strings.gadgets.pickZone` | Area selector open message (if gadget needs a zone) |
+| `strings.gadgets.emptyZone` | Forbidden label for zones without a power |
+| `strings.gadgets.noTarget` | Announced when list step has 0 items |
+| `strings.gadgets.wrongPhase` | Fallback if `canPlayerAct` fails (safety net) |

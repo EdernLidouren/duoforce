@@ -15,6 +15,7 @@
 import { manhattanDistance } from './rules.js';
 import { hasAreaStatus } from './statuses.js';
 import { createAction, executeAction, validateAction } from './actions.js';
+import { canPlayerAct } from './combatPhases.js';
 
 /** Distance maximale autorisée pour une manœuvre (adjacence orthogonale). */
 const MANEUVER_DISTANCE = 1;
@@ -101,6 +102,9 @@ export function canManeuverTo(combatState, sourcePos, targetPos) {
  * @returns {{ success: boolean, reason?: string|null }}
  */
 export function executeManeuver(combatState, sourcePos, targetPos) {
+  if (!canPlayerAct(combatState)) {
+    return { success: false, reason: 'action.blocked.wrong_phase' };
+  }
   if (!canStartManeuver(combatState)) {
     return { success: false, reason: 'action.blocked.no_maneuver' };
   }
