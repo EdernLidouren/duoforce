@@ -143,6 +143,22 @@ export function createGadgetInventoryWidget({
   usageContext,
   strings,
   announce,
+  /**
+   * Surcharge optionnelle du test d'utilisabilité.
+   * Si absent, utilise isGadgetUsableInContext(gadget, usageContext).
+   * En combat : (gadget) => isGadgetUsableInContext(gadget, 'combat') && canPlayerAct(state)
+   * @type {((gadget: object) => boolean) | undefined}
+   */
+  isGadgetUsable,
+  /**
+   * Surcharge optionnelle du gestionnaire d'utilisation.
+   * Si absent, utilise applyGadgetInHub (comportement hub).
+   * Signature : (gadget, index, done) => void
+   *   done() — callback fourni par le widget ; à appeler quand l'usage est terminé
+   *             (succès OU annulation). Le widget rafraîchit son rendu et se refocus.
+   * @type {((gadget: object, index: number, done: () => void) => void) | undefined}
+   */
+  onUse,
   onAfterUse,
 }) {
   let cursorIndex = 0;
@@ -233,7 +249,10 @@ export function createGadgetInventoryWidget({
 
   function openSubMenu() {
     const gadget = gadgetAt(cursorIndex);
-    const usable = gadget && isGadgetUsableInContext(gadget, usageContext);
+    // Utilise la surcharge isGadgetUsable si fournie (ex. combat : vérifie aussi canPlayerAct).
+    const usable = gadget && (
+      isGadgetUsable ? isGadgetUsable(gadget) : isGadgetUsableInContext(gadget, usageContext)
+    );
 
     if (!gadget || !usable) {
       announce.polite(g().noAction ?? 'Aucune action disponible.');
@@ -258,9 +277,23 @@ export function createGadgetInventoryWidget({
         {
           id:    'use',
           label: gStr.use ?? 'Utiliser',
-          // onConfirm sur l'item : SubMenu.confirm() retourne ici sans déclencher
-          // _triggerClose ensuite (contrairement au mode single_choice).
-          onConfirm: () => closeSubMenu(() => useGadget(idx)),
+          onConfirm: () => {
+            if (onUse) {
+              // Mode combat (ou surcharge externe) : le caller gère l'effet et
+              // appelle done() quand l'usage est terminé (succès ou annulation).
+              closeSubMenu(() => {
+                const done = () => {
+                  cursorIndex = Math.min(cursorIndex, Math.max(0, capacity() - 1));
+                  renderSlots();
+                  if (rootEl) rootEl.focus();
+                  announce.polite(slotDescription(cursorIndex));
+                };
+                onUse(gadget, idx, done);
+              });
+            } else {
+              closeSubMenu(() => useGadget(idx));
+            }
+          },
         },
       ],
       closeLabel: gStr.back ?? 'Retour',

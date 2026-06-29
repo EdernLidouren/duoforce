@@ -57,7 +57,8 @@ export default {
       boss: 'boss combat',
     },
     turnAnnounce: 'Turn {turn}, {combatType} against {enemy}.',
-    wrongPhase: 'Cannot act at this time.',
+    wrongPhase:    'Cannot act at this time.',
+    actionBlocked: 'Action blocked.',
   },
 
   resources: {
@@ -586,7 +587,31 @@ export default {
     },
     gadget_energizer: {
       name:        'Energizer',
-      description: 'One-shot attack boost. Usable in combat only.',
+      description: '+3 attack for this turn. Usable in combat only.',
+    },
+    gadget_cryo_blast: {
+      name:        'Cryo Blast',
+      description: 'Freezes a zone for 2 turns. Usable in combat only.',
+      selectZone:  'Select a zone to freeze.',
+      emptyZone:   'Empty zone — choose a zone with a power.',
+    },
+    gadget_teleporter: {
+      name:         'Teleporter',
+      description:  'Moves a power to an adjacent empty zone. Blocked if anchored.',
+      selectSource: 'Step 1: choose the power to move.',
+      emptySource:  'Empty zone — choose a zone with a power.',
+      selectDest:   'Step 2: choose the destination zone (adjacent, empty).',
+      noAdjacentEmpty: 'No adjacent empty zone.',
+    },
+    gadget_resonator: {
+      name:        'Resonator',
+      description: 'Gauge fills each turn. Weak effect when partial, heal when full.',
+    },
+    gadget_nullifier: {
+      name:        'Nullifier',
+      description: 'Anchors a targeted zone. Blocked if the power is immune.',
+      selectZone:  'Select a zone to anchor.',
+      emptyZone:   'Empty zone — choose a zone with a power.',
     },
     gadget_charge_cell: {
       name:        'Charge Cell',

@@ -30,6 +30,8 @@ Each catalog entry is immutable. Instance state lives in the run.
 | `consumable` | boolean | `true` | Whether the gadget is removed from inventory after use. |
 | `usableIn` | `'hub'`\|`'combat'`\|`'both'` | `'both'` | Declares where usage has an effect. The inventory remains visible everywhere; this field is enforced by the usage interface (prompts 2 and 3). |
 | `actions` | array | `[]` | Effects to execute on use — same action system as powers. |
+| `targeting` | array \| `null` | `null` | Targeting step descriptors (see Targeting section). |
+| `triggers` | array | `[]` | Event-driven hooks — see **Triggers** section below. |
 | `counter` | `{ max: number }` \| `null` | `null` | Declares the counter and its maximum. Only the definition (`max`) lives here; the live state (`value`) is in the instance. |
 
 ### Live instance (`run.gadgets[]`)
@@ -43,6 +45,8 @@ Each element in `run.gadgets` is a live instance created by `createGadgetInstanc
 | `consumable` | boolean | Copied from def (mutable — a perk could change it) |
 | `usableIn` | string | Copied from def (mutable) |
 | `actions` | array | Reference to catalog actions (functions, not serialized) |
+| `targeting` | array \| `null` | Reference from catalog (functions, not serialized) |
+| `triggers` | array | Reference from catalog `{ on, fn }` entries (not serialized) |
 | `counter` | `{ value, max }` \| `null` | Live counter state. `value` starts at 0. |
 | `statuses` | array | Status instances with `target: 'entity'` and `entity: gadget`. |
 
@@ -74,6 +78,109 @@ effect. The engine enforces nothing. Example pattern in an action:
 // Inside a gadget's action:
 canUse: (gadget) => gadget.counter?.value >= gadget.counter?.max,
 ```
+
+---
+
+## Triggers
+
+Gadgets can declare event-driven hooks that fire automatically at key moments
+during combat, without any gadget-id reference in the engine.
+
+### Structure
+
+```js
+triggers: [
+  { on: 'turn_end', fn: (gadget, combatState) => { /* mutate gadget or state */ } },
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `on` | string | Event type to react to. Any string is accepted — the engine matches by equality. |
+| `fn` | function | Called with the live gadget instance and the current `combatState`. Free to modify `gadget.counter`, `gadget.statuses`, or the combat state. |
+
+`triggers` is not serialized (functions). It is rebuilt from the catalog on
+`deserializeGadget`, the same as `actions` and `targeting`.
+
+### Alignment with statuses and perks
+
+The three "turn_end" processing calls in `resolveTurn` are now symmetrical:
+
+```
+processTurnEnd(state)              // statuses  : calls status.onTurnEnd(status)
+processPerksTurnEnd(state)         // perks      : calls perk.onTurnEnd(state, ctx, owner)
+processGadgetTriggers(run, 'turn_end', state)  // gadgets : calls trigger.fn(gadget, state)
+```
+
+The gadget call is made from the combat **scene** (`src/scenes/combat.js`,
+`endTurn()`) rather than from `engine/combat.js`, because the combat engine does
+not have access to the run. The timing is equivalent: before the new turn starts.
+
+### Generic dispatch
+
+`processGadgetTriggers(run, eventType, combatState)` (exported from
+`src/engine/gadgets.js`) loops all gadgets in `run.gadgets` and fires matching
+triggers. **No gadget id appears in this function** — each gadget declares its
+own reactions.
+
+```js
+// To support a new event type, no engine file changes are needed:
+// 1. Declare the trigger in the gadget definition.
+// 2. Call processGadgetTriggers(run, 'new_event_type', state) at the right moment
+//    in the scene (one-line addition at the call site).
+```
+
+### Rule: no gadget id in engine code
+
+After this system, no file outside `src/data/gadgets/index.js` should reference
+a gadget id by string for routing purposes. If you need to handle a gadget
+specially, it declares that behavior itself via `triggers`, `actions`, or
+`targeting`.
+
+### Import cycle guard
+
+`fn` in a trigger **must not import from `src/engine/gadgets.js`** — that would
+create a cycle (`data/gadgets → engine/gadgets → data/gadgets`). Inline the
+logic directly:
+
+```js
+// Instead of: import { incrementCounter } from '../../engine/gadgets.js';
+fn: (gadget) => {
+  const c = gadget.counter;
+  if (c && c.value < c.max) c.value += 1;  // same logic as incrementCounter
+},
+```
+
+### Example: `gadget_resonator`
+
+```js
+{
+  id:      'gadget_resonator',
+  counter: { max: 3 },
+  triggers: [
+    {
+      on: 'turn_end',
+      fn: (gadget) => {
+        const c = gadget.counter;
+        if (c && c.value < c.max) c.value += 1;
+      },
+    },
+  ],
+  actions: [
+    (targets, gadget) => {
+      const val = gadget.counter?.value ?? 0;
+      const max = gadget.counter?.max ?? 3;
+      return val >= max
+        ? { type: 'heal',       target: 'duo', value: max * 4 }
+        : { type: 'add_attack', target: 'duo', value: Math.max(1, val) };
+    },
+  ],
+}
+```
+
+Each turn end increments the gauge. At use, the action factory reads the current
+counter value and returns the appropriate effect. No engine file knows the
+resonator exists.
 
 ---
 
@@ -373,119 +480,119 @@ the gadget instance is the natural solution, and matches the serialization model
 
 ## Combat usage interface (Prompt 3)
 
+### Architecture
+
+Gadget usage in combat is assembled from three existing bricks:
+
+| Brick | Role |
+|---|---|
+| `GadgetInventoryWidget` | Zone UI, slot navigation, SubMenu "Utiliser", calls `onUse(gadget, index, done)` |
+| `TargetingResolver` | Multi-step target collection (Escape cancels without consuming) |
+| `executeAction` + `removeGadget` | Apply effects and consume after success only |
+
+The widget is mounted in a dedicated zone in `src/scenes/combat.js`, cycled
+with Tab/Shift+Tab. The `g` key (KEYBINDINGS.GADGET_ZONE) toggles between
+the board zone and the gadget zone.
+
 ### Phase constraint
 
-Gadgets may only be used during the `play` phase (`canPlayerAct(combatState)` returns `true`).
-This mirrors the constraint on maneuvers and strategies.
+Gadgets may only be used during the `play` phase. The check is dual:
 
-The engine function that executes a gadget in combat (`executeGadget` — to be written
-in Prompt 3) **must** call `canPlayerAct(combatState)` before doing anything else,
-as a hard guard independent of the UI.
+1. **Widget** — `isGadgetUsable(gadget)` option: `isGadgetUsableInContext(gadget, 'combat') && canPlayerAct(state)`.
+   If the check fails, the SubMenu opens but the confirmation is blocked and
+   `strings.gadgets.noAction` is announced.
+2. **`openGadgetUse`** — checks `canPlayerAct(state)` as the first line before
+   doing anything else. Calls `done()` immediately with no effect if the phase is wrong.
 
-The UI also checks `canPlayerAct` before opening the usage flow, to give
-immediate feedback without entering a selector.
+### `targeting` field on gadgets
+
+Gadget definitions may carry a `targeting` array (copied by reference into instances
+via `createGadgetInstance`). Each entry is a **step descriptor**:
 
 ```js
-// Pattern attendu pour executeGadget (Prompt 3) :
-import { canPlayerAct } from './combatPhases.js';
-
-export function executeGadget(combatState, run, gadget) {
-  if (!canPlayerAct(combatState)) return;
-  // … appliquer les actions du gadget via executeAction …
+{
+  targetType:        'area' | 'list',   // brique de sélection à utiliser
+  labelKey:          string,            // clé dans strings.gadgets[gadget.id]
+  forbiddenLabelKey: string,            // clé pour zones/items interdits
+  emptyKey?:         string,            // clé si liste vide (targetType 'list')
+  autoSelect?:       boolean,           // confirme si 1 seul item
+  isValid?:          (pos, board) => boolean,         // targetType 'area'
+  getItems?:         (collected, state) => any[],     // targetType 'list'
+  describeItem?:     (item, strings) => string,       // targetType 'list'
 }
 ```
 
-### Targeting (system integration)
+`targeting: null` or empty array → immediate effect, no selector opened.
 
-Gadgets that require a target (zone, hero, list…) use the **TargetingResolver**
-from `src/ui/targeting.js`. See `docs/targeting-system.md` for the complete API.
+`targeting` is **not serialized** (contains functions); rebuilt from catalog on
+`deserializeGadget`. Same rule as `actions`.
 
-#### Gadgets without a target
+### `applyGadgetActionsCombat` (combat.js scene, private)
 
-The gadget's `actions` are applied directly via `executeAction(combatState, action)`.
-No targeting step needed — the effect is immediate (e.g. "heal duo by 5").
-
-```js
-// Example: gadget with target: 'duo' — no targeting step
-{ type: 'heal', target: 'duo', value: 5 }
-```
-
-#### Gadgets with a board target (`targetType: 'area'`)
-
-One targeting step of type `'area'` is added to the resolver. The `getZoneState`
-callback filters valid positions according to the gadget's effect rules (e.g.
-"zone with a power", "adjacent to another zone", etc.).
+Resolves actions (function or plain object), calls `executeAction`, then consumes
+the gadget if `consumable`, emits dual events (turn log + progression log),
+announces the usage, and refreshes the view.
 
 ```js
-// Example: gadget that applies a status to a chosen zone
-createTargetingResolver({
-  steps: [{
-    targetType: 'area',
-    label: strings.gadgets.pickZone,
-    getZoneState: (pos, _collected, ctx) => {
-      const area = ctx.state.board[pos];
-      if (!area.power) return { status: 'forbidden', label: strings.gadgets.emptyZone };
-      return { status: 'selectable' };
-    },
-    isValid: (pos) => combatState.board[pos].power != null,
-  }],
-  resolveContext: { tdByIndex, strings, announce, describeCell, state: combatState },
-  onComplete: ([pos]) => {
-    executeAction(combatState, createAction('apply_status', { target: 'area', position: pos, … }));
-    if (gadget.consumable) removeGadget(run, index, 'used');
-    updateView();
-  },
-  onCancel: () => { /* nothing consumed */ },
-});
+// Actions may be plain objects or factory functions:
+actions: [{ type: 'add_attack', target: 'duo', value: 3 }]           // plain
+actions: [(targets) => ({ type: 'apply_status', target: {...}, … })]  // factory
 ```
 
-#### Gadgets with a list target (`targetType: 'list'`)
+### `openGadgetUse(gadget, index, done)` (combat.js scene, private)
 
-One targeting step of type `'list'`. `getItems` returns the available choices.
-If the list has 0 items, `emptyLabel` is announced and `onCancel` is called
-without consuming the gadget.
+Called by the widget's `onUse` option after the SubMenu is closed.
 
-#### Multi-step gadgets
-
-Steps may be combined freely. Each step receives `collectedTargets` from prior
-steps, enabling dependent logic (e.g. step 2 offers options based on step 1's
-chosen zone).
-
-#### Consumption rule
-
-**The gadget is consumed only inside `onComplete`**, after the full sequence
-succeeds. `onCancel` (from any step, including Escape at step 0) must not
-consume the gadget or apply any effect.
-
-```js
-onComplete: (collectedTargets) => {
-  // 1. Apply effects
-  gadget.actions.forEach(action => executeAction(combatState, action));
-  // 2. Consume after success
-  if (gadget.consumable) removeGadget(run, index, 'used');
-  updateView();
-},
-onCancel: () => {
-  // Nothing — user backed out, no effect, no consumption
-},
+```
+canPlayerAct? → no  → announce wrongPhase, done()
+targeting empty?    → apply immediately, done()
+targeting present   → open TargetingResolver on board zone
+  onComplete        → re-activate gadget zone, apply, done()
+  onCancel          → re-activate gadget zone, done() (nothing consumed)
 ```
 
-### Phases where gadget effects apply
+The resolver replaces `boardKeyHandler` during the sequence; the board zone
+receives all key events. On complete or cancel, `boardKeyHandler` is restored to
+`onBoardKey` before calling `done()`.
 
-A gadget's `actions` execute immediately when `onComplete` fires — always during
-the `play` phase (since `canPlayerAct` was checked upfront). Gadgets do not have
-a dedicated phase; their effects land in `play` and are reflected in the combat
-state before the player validates the turn.
+### Consumption rule
 
-Effects that reference `combatState.phase` (e.g. "bonus if used on turn 1") may
-use `isPhaseActiveFor(state, [COMBAT_PHASES.PLAY])` or read
-`getPhase(state)` directly. See `docs/combat-phases.md`.
+**Consumed in `applyGadgetActionsCombat` only** — called from `onComplete` (or
+directly for non-targeting gadgets). Never called in `onCancel`. Escape at any
+step returns to the gadget zone without any effect or consumption.
 
-### Language pack keys (Prompt 3, to add)
+### Dual event emit
+
+`removeGadget` is called with a custom `emitFn` that fires both:
+- `emitEvent(state, type, data)` — turn log (combat journal)
+- `emitProgressionEvent(type, data)` — progression log (run journal)
+
+### Debug gadgets (standalone combat mode)
+
+When no run is available but `ctx.debug.enabled` is true, a fake run is
+constructed with three test gadgets:
+
+| Gadget | Type | Purpose |
+|---|---|---|
+| `gadget_energizer` | combat, no targeting | Tests immediate effect |
+| `gadget_cryo_blast` | combat, area targeting | Tests TargetingResolver flow |
+| `gadget_bandage` | hub only | Tests "aucune action" path (wrong context) |
+
+### Language pack keys
 
 | Key path | Purpose |
 |---|---|
-| `strings.gadgets.pickZone` | Area selector open message (if gadget needs a zone) |
-| `strings.gadgets.emptyZone` | Forbidden label for zones without a power |
-| `strings.gadgets.noTarget` | Announced when list step has 0 items |
-| `strings.gadgets.wrongPhase` | Fallback if `canPlayerAct` fails (safety net) |
+| `strings.gadgets[id].selectZone` | Area selector announcement (per gadget) |
+| `strings.gadgets[id].emptyZone` | Forbidden zone label (per gadget) |
+| `strings.gadgets.noAction` | Announced when gadget is not usable (wrong phase or context) |
+| `strings.gadgets.usedNamed` | `'{name} utilisé.'` — confirmed use announcement |
+| `strings.combat.wrongPhase` | Announced if `canPlayerAct` fails in `openGadgetUse` |
+
+Keys `selectZone` and `emptyZone` are per-gadget (under `strings.gadgets[gadget.id]`),
+not global, so each gadget can have its own contextual phrasing.
+
+### Phases where gadget effects apply
+
+A gadget's effects land during the `play` phase (since `canPlayerAct` is checked
+upfront). They update `combatState` immediately — the player sees the result before
+validating the turn with Ctrl+E.

@@ -60,7 +60,8 @@ export default {
       boss: 'combat de boss',
     },
     turnAnnounce: 'Tour {turn}, {combatType} contre {enemy}.',
-    wrongPhase: 'Action impossible pour le moment.',
+    wrongPhase:    'Action impossible pour le moment.',
+    actionBlocked: 'Action bloquée.',
   },
 
   // Ressources : nom / message d'affichage / message d'aide, distincts.
@@ -596,7 +597,31 @@ export default {
     },
     gadget_energizer: {
       name:        'Stimulateur',
-      description: "Boost d'attaque ponctuel. Utilisable en combat uniquement.",
+      description: "+3 en attaque pour ce tour. Utilisable en combat uniquement.",
+    },
+    gadget_cryo_blast: {
+      name:        'Cryo-grenade',
+      description: "Gèle une zone pendant 2 tours. Utilisable en combat uniquement.",
+      selectZone:  'Choisissez une zone à geler.',
+      emptyZone:   'Zone vide — choisissez une zone avec un pouvoir.',
+    },
+    gadget_teleporter: {
+      name:         'Téléporteur',
+      description:  'Déplace un pouvoir vers une zone adjacente vide. Bloqué si la zone est ancrée.',
+      selectSource: 'Étape 1 : choisissez le pouvoir à déplacer.',
+      emptySource:  'Zone vide — choisissez une zone avec un pouvoir.',
+      selectDest:   'Étape 2 : choisissez la zone de destination (adjacente, vide).',
+      noAdjacentEmpty: 'Aucune zone adjacente vide.',
+    },
+    gadget_resonator: {
+      name:        'Résonateur',
+      description: 'Jauge qui se remplit chaque tour. Effet faible si partielle, soin si pleine.',
+    },
+    gadget_nullifier: {
+      name:        'Neutraliseur',
+      description: 'Ancre une zone ciblée. Bloqué si le pouvoir est immunisé.',
+      selectZone:  'Choisissez une zone à ancrer.',
+      emptyZone:   'Zone vide — choisissez une zone avec un pouvoir.',
     },
     gadget_charge_cell: {
       name:        'Cellule de charge',

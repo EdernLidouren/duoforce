@@ -64,6 +64,11 @@ export function createGadgetInstance(def) {
     consumable: def.consumable ?? true,
     usableIn:   def.usableIn  ?? 'both',
     actions:    def.actions    ?? [],
+    // targeting : copiée par référence depuis le catalogue (fonctions, non sérialisées).
+    targeting:  def.targeting  ?? null,
+    // triggers : tableau de { on, fn } par référence (fonctions, non sérialisés).
+    // Même règle que actions/targeting : omis en sérialisation, rechargés depuis le catalogue.
+    triggers:   def.triggers   ?? [],
     // Compteur : { value: 0, max } si déclaré dans le catalogue, null sinon.
     counter:    def.counter ? { value: 0, max: def.counter.max } : null,
     statuses:   [],
@@ -225,10 +230,50 @@ export function setGadgetCapacity(run, newCapacity, emitFn) {
 // Sérialisation (utilisé par run.js)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Triggers d'event (système générique)
+// ---------------------------------------------------------------------------
+//
+// Un trigger de gadget déclare : { on: string, fn: (gadget, combatState) => void }
+//   on  — type d'event auquel réagir (ex. 'turn_end', 'phase_changed', …)
+//   fn  — fonction exécutée avec l'instance vivante du gadget et l'état de combat.
+//         Libre de modifier gadget.counter, gadget.statuses, voire combatState.
+//
+// Alignement avec les statuts/perks :
+//   statuts  → processTurnEnd(state)          appelle onTurnEnd(status)
+//   perks    → processPerksTurnEnd(state)      appelle perk.onTurnEnd(state, ctx, owner)
+//   gadgets  → processGadgetTriggers(run, on, state)  appelle trigger.fn(gadget, state)
+//
+// Aucune référence à un id de gadget ici — chaque gadget déclare ses propres réactions.
+
+/**
+ * Parcourt l'inventaire et exécute les triggers dont `on` correspond à `eventType`.
+ * À appeler aux moments pertinents depuis la scène de combat (endTurn, etc.).
+ *
+ * @param {object} run         Run vivante (contient run.gadgets).
+ * @param {string} eventType   Type d'event (ex. 'turn_end').
+ * @param {object} combatState État de combat courant.
+ */
+export function processGadgetTriggers(run, eventType, combatState) {
+  const gadgets = run?.gadgets;
+  if (!Array.isArray(gadgets)) return;
+  for (const gadget of gadgets) {
+    for (const t of (gadget.triggers ?? [])) {
+      if (t.on === eventType && typeof t.fn === 'function') {
+        t.fn(gadget, combatState);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sérialisation (utilisé par run.js)
+// ---------------------------------------------------------------------------
+
 /**
  * Produit un save object JSON-safe depuis une instance de gadget.
- * Sérialise l'état mutable (counter.value, statuses) ; les actions (fonctions)
- * sont omises et rechargées depuis le catalogue à la désérialisation.
+ * Sérialise l'état mutable (counter.value, statuses) ; les actions et triggers
+ * (fonctions) sont omis et rechargés depuis le catalogue à la désérialisation.
  *
  * @param {object} gadget
  * @returns {object}
@@ -257,7 +302,7 @@ export function deserializeGadget(saved) {
   const def = getGadgetById(saved.id);
   if (!def) return null; // gadget retiré du catalogue entre deux sessions
   return {
-    ...def,                                               // actions fraîches du catalogue
+    ...def,                                               // actions, targeting, triggers fraîches du catalogue
     consumable: saved.consumable ?? def.consumable,
     usableIn:   saved.usableIn   ?? def.usableIn,
     counter:    saved.counter

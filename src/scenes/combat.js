@@ -44,10 +44,13 @@ import { BOARD_ROWS, indexToXY, xyToIndex, describeBoardCell } from '../ui/board
 import { createTargetingResolver } from '../ui/targeting.js';
 import { canStartManeuver, canManeuverFrom, executeManeuver, reachablePositions } from '../engine/maneuver.js';
 import { canPlayerAct } from '../engine/combatPhases.js';
-import { getEvents } from '../engine/events.js';
-import { validateAction, createAction } from '../engine/actions.js';
+import { getEvents, emitEvent, emitProgressionEvent } from '../engine/events.js';
+import { validateAction, createAction, executeAction } from '../engine/actions.js';
 import { canRemove, canDiscard } from '../engine/powerActions.js';
 import { buildCandidates, executeStrategy, canUseStrategySource } from '../engine/strategy.js';
+import { createGadgetInventoryWidget, isGadgetUsableInContext } from '../ui/GadgetInventoryWidget.js';
+import { removeGadget, addGadget, processGadgetTriggers } from '../engine/gadgets.js';
+import { getGadgetById } from '../data/gadgets/index.js';
 
 /** Déplacements 2D associés aux flèches : [dx, dy]. */
 const ARROW_DELTAS = {
@@ -76,9 +79,13 @@ function el(tag, { attrs, ...props } = {}, ...children) {
   return node;
 }
 
+/** Index fixe de la zone Plateau dans le contrôleur de zones. */
+const BOARD_ZONE_INDEX = 2;
+
 export function createCombatScene() {
   let state = null;
   let context = null;
+  let run = null;          // context.run ou dummy debug (null = pas de gadgets)
   let controller = null;
   let onKeydown = null;
   let estimator = null;
@@ -87,6 +94,11 @@ export function createCombatScene() {
   let appEl = null;
   let refs = null;
   let tdByIndex = null;
+
+  // Zone gadgets (créée seulement si run est disponible).
+  let gadgetWidget = null;
+  let gadgetZoneEl = null;
+  let gadgetZoneIndex = -1; // -1 = zone absente
 
   // Curseurs internes des zones.
   let boardX = 0;
@@ -263,6 +275,34 @@ export function createCombatScene() {
       { id: 'actions', element: actionsZoneEl, label: L.actions, onEnter: () => `${L.turn} ${state.turn}. ${currentActionLabel()}`, onKey: onActionsKey },
       { id: 'history', element: historyZoneEl, label: L.history, noAria: true, onEnter: () => describeHistory(), onKey: (e) => historyNav.onKey(e) },
     ];
+
+    // Zone gadgets (uniquement si une run est disponible).
+    if (run) {
+      gadgetZoneEl = el('section', {}, el('h2', { textContent: context.strings?.gadgets?.zoneName ?? 'Gadgets' }));
+      appEl.appendChild(gadgetZoneEl);
+
+      gadgetWidget = createGadgetInventoryWidget({
+        container:    gadgetZoneEl,
+        run,
+        usageContext: 'combat',
+        strings:      context.strings,
+        announce:     context.announce,
+        // Utilisable uniquement en phase play ET cadre combat.
+        isGadgetUsable: (gadget) => isGadgetUsableInContext(gadget, 'combat') && canPlayerAct(state),
+        onUse: openGadgetUse,
+      });
+      gadgetWidget.mount();
+
+      gadgetZoneIndex = zones.length;
+      zones.push({
+        id:      'gadgets',
+        element: gadgetZoneEl,
+        label:   context.strings?.gadgets?.zoneName ?? 'Gadgets',
+        focus:   () => gadgetWidget.focus(),
+        onEnter: () => `${gadgetWidget.getSummary()}. ${gadgetWidget.getCurrentSlotDescription()}`,
+        onKey:   (e) => gadgetWidget.handleKey(e),
+      });
+    }
 
     controller = createZoneController({
       container: appEl,
@@ -477,7 +517,7 @@ export function createCombatScene() {
 
     activeSelector = resolver;
     boardKeyHandler = (e) => resolver.handleKey(e);
-    controller.activate(2, { silent: true }); // zone Plateau = index 2
+    controller.activate(BOARD_ZONE_INDEX, { silent: true });
     resolver.start();
   }
 
@@ -538,7 +578,7 @@ export function createCombatScene() {
 
     activeSelector = resolver;
     boardKeyHandler = (e) => resolver.handleKey(e);
-    controller.activate(2, { silent: true }); // zone Plateau = index 2
+    controller.activate(BOARD_ZONE_INDEX, { silent: true });
     resolver.start();
   }
 
@@ -626,7 +666,170 @@ export function createCombatScene() {
 
     activeSelector = resolver;
     boardKeyHandler = (e) => resolver.handleKey(e);
-    controller.activate(2, { silent: true }); // zone Plateau = index 2
+    controller.activate(BOARD_ZONE_INDEX, { silent: true });
+    resolver.start();
+  }
+
+  // --- Gadgets : utilisation en combat ------------------------------------------
+
+  /**
+   * Applique les actions d'un gadget en combat après validation de la séquence.
+   * Supporte les actions plain-object ET les factory functions (targets) => action.
+   * Consomme le gadget si consumable, émet les events dans les journaux tour + progression.
+   * @param {object} gadget
+   * @param {any[]} collectedTargets  cibles collectées par le TargetingResolver (peut être [])
+   * @param {number} index  index dans run.gadgets
+   */
+  /**
+   * Applique les actions d'un gadget en combat et gère la consommation.
+   *
+   * Fix friction 2 : la factory est appelée (targets, gadget) et non (targets).
+   *   Permet aux actions de lire gadget.counter.value, gadget.statuses, etc.
+   *
+   * Fix friction 3 : si executeAction retourne action.cancelled = true,
+   *   le gadget n'est PAS consommé et un message de blocage est annoncé.
+   *   Règle : "toute action annulée" → blocage total (cohérent avec un gadget
+   *   dont l'effet est atomique).
+   */
+  function applyGadgetActionsCombat(gadget, collectedTargets, index) {
+    let anyActionCancelled = false;
+    let blockReason = null;
+
+    for (const actionOrFn of gadget.actions ?? []) {
+      // Friction 2 fix : passe gadget comme second argument à la factory.
+      const raw = typeof actionOrFn === 'function' ? actionOrFn(collectedTargets, gadget) : actionOrFn;
+      if (!raw) continue;
+      const action = executeAction(state, createAction(raw.type, {
+        source: raw.source ?? null,
+        target: raw.target ?? null,
+        value:  raw.value  ?? null,
+        data:   raw.data   ?? {},
+      }));
+      if (action.cancelled) {
+        anyActionCancelled = true;
+        if (!blockReason) blockReason = action.reason;
+      }
+    }
+
+    const gStr = context.strings?.gadgets ?? {};
+    const name = gStr[gadget.id]?.name ?? gadget.id;
+
+    if (anyActionCancelled) {
+      // Friction 3 fix : ne pas consommer si l'action a été interceptée.
+      const reasonMsg = (blockReason && context.strings)
+        ? (context.strings[blockReason] ?? blockReason)
+        : (context.strings?.combat?.actionBlocked ?? 'Action bloquée.');
+      context.announce.enqueue(reasonMsg);
+    } else {
+      if (gadget.consumable) {
+        // Double émission : journal de tour (turn) + journal de progression.
+        removeGadget(run, index, 'used', (type, data) => {
+          emitEvent(state, type, data);
+          emitProgressionEvent(type, data);
+        });
+        gadgetWidget?.refresh();
+      }
+      context.announce.enqueue(format(gStr.usedNamed ?? '{name} utilisé.', { name }));
+    }
+
+    estimator.invalidate();
+    updateView();
+  }
+
+  /**
+   * Gestionnaire d'usage gadget en combat.
+   * Appelé par le widget via l'option onUse (fermeture du SubMenu → ouverture flow).
+   * Vérifie canPlayerAct, puis :
+   *   - sans ciblage : applique immédiatement, appelle done().
+   *   - avec ciblage : ouvre le TargetingResolver sur la zone Plateau ; done() est
+   *     appelé en onComplete ou onCancel.
+   * La consommation n'a lieu qu'en onComplete (jamais en onCancel).
+   *
+   * @param {object}   gadget  Instance vivante du gadget.
+   * @param {number}   index   Index dans run.gadgets.
+   * @param {Function} done    Callback fourni par le widget (rafraîchit et refocus).
+   */
+  function openGadgetUse(gadget, index, done) {
+    const strings = context.strings;
+
+    if (!canPlayerAct(state)) {
+      context.announce.polite(strings?.combat?.wrongPhase ?? 'Cannot act at this time.');
+      done(); // refocus widget sans effet
+      return;
+    }
+
+    const targetingDefs = gadget.targeting ?? [];
+
+    if (targetingDefs.length === 0) {
+      // Pas de ciblage : application immédiate.
+      applyGadgetActionsCombat(gadget, [], index);
+      done();
+      return;
+    }
+
+    // Séquence de ciblage — ouvre le TargetingResolver sur la zone Plateau.
+    if (activeSelector) activeSelector.close();
+
+    const gadgetStrings = strings?.gadgets?.[gadget.id] ?? {};
+    const steps = targetingDefs.map((stepDef) => {
+      if (stepDef.targetType === 'area') {
+        return {
+          targetType:      'area',
+          label:           gadgetStrings[stepDef.labelKey] ?? '',
+          forbiddenPrefix: gadgetStrings[stepDef.forbiddenLabelKey] ?? '',
+          initialPosition: boardIndexAt(boardX, boardY),
+          getZoneState: (pos) => {
+            if (stepDef.isValid && !stepDef.isValid(pos, state.board)) {
+              return { status: 'forbidden', label: gadgetStrings[stepDef.forbiddenLabelKey] ?? '' };
+            }
+            return { status: 'selectable' };
+          },
+        };
+      }
+      if (stepDef.targetType === 'list') {
+        return {
+          targetType: 'list',
+          label:      gadgetStrings[stepDef.labelKey] ?? '',
+          emptyLabel: gadgetStrings[stepDef.emptyKey] ?? '',
+          autoSelect: stepDef.autoSelect ?? false,
+          getItems:   (collected) => stepDef.getItems ? stepDef.getItems(collected, state) : [],
+          // Friction 4 fix : describeItem(item, strings) n'a pas accès au board.
+          // Si le catalogue définit describeItem, on lui passe (item, strings, state)
+          // comme troisième arg (extension non-breaking : les factories à 2 args ignorent le 3e).
+          // Sinon : fallback — les items-position (number) sont décrits par describeCellAt,
+          // les autres par String(item).
+          describeItem: stepDef.describeItem
+            ? (item, strs) => stepDef.describeItem(item, strs, state)
+            : (item)       => typeof item === 'number' ? describeCellAt(item) : String(item),
+        };
+      }
+      // Type non supporté : stub (le resolver l'ignorera avec un console.warn).
+      return stepDef;
+    });
+
+    const resolver = createTargetingResolver({
+      steps,
+      resolveContext: { tdByIndex, announce: context.announce, strings, describeCell: describeCellAt },
+      onComplete: (collectedTargets) => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        // Retour à la zone gadgets avant d'appeler done() qui refocus le widget.
+        if (gadgetZoneIndex >= 0) controller.activate(gadgetZoneIndex, { silent: true });
+        applyGadgetActionsCombat(gadget, collectedTargets, index);
+        done();
+      },
+      onCancel: () => {
+        activeSelector = null;
+        boardKeyHandler = onBoardKey;
+        // Retour à la zone gadgets sans appliquer ni consommer quoi que ce soit.
+        if (gadgetZoneIndex >= 0) controller.activate(gadgetZoneIndex, { silent: true });
+        done();
+      },
+    });
+
+    activeSelector = resolver;
+    boardKeyHandler = (e) => resolver.handleKey(e);
+    controller.activate(BOARD_ZONE_INDEX, { silent: true });
     resolver.start();
   }
 
@@ -761,12 +964,19 @@ export function createCombatScene() {
 
     applyBoardCursor();
     applyActionCursor();
+    gadgetWidget?.refresh();
   }
 
   // --- Boucle de jeu ---------------------------------------------------------
 
   function endTurn() {
     if (isOver(state)) return;
+
+    // Déclenche les triggers 'turn_end' de tous les gadgets de l'inventaire.
+    // Aligné sur processTurnEnd(state) et processPerksTurnEnd(state) :
+    // même moment, même pattern — chaque gadget déclare ses propres réactions.
+    // Aucun id de gadget en dur ici.
+    if (run) processGadgetTriggers(run, 'turn_end', state);
 
     context.announce.clearLog();
     const report = resolveTurn(state);
@@ -836,6 +1046,14 @@ export function createCombatScene() {
       case KEYBINDINGS.ANNOUNCE_STRATEGIES.id: announceStrategies(); break;
       case KEYBINDINGS.ANNOUNCE_CREDIT.id: announceCredit(); break;
       case KEYBINDINGS.ANNOUNCE_TURN.id: announceTurn(); break;
+      case KEYBINDINGS.GADGET_ZONE?.id: {
+        if (gadgetZoneIndex >= 0) {
+          // Bascule : si déjà dans la zone gadgets → revenir au plateau, sinon → gadgets.
+          const inGadgets = gadgetZoneEl && gadgetZoneEl.contains(document.activeElement);
+          controller.activate(inGadgets ? BOARD_ZONE_INDEX : gadgetZoneIndex);
+        }
+        break;
+      }
       default: break;
     }
   }
@@ -846,8 +1064,29 @@ export function createCombatScene() {
     mount(ctx) {
       context = ctx;
 
-      const run = ctx.run;
-      if (run) {
+      run = ctx.run ?? null;
+
+      // Debug : si aucune run réelle mais mode debug actif, créer une run factice
+      // avec des gadgets de test (stimulateur, cryo-grenade, gadget hub).
+      if (!run && ctx.debug?.enabled) {
+        const fakeRun = { gadgets: [], gadgetSlots: 3 };
+        // Gadgets stress-test uniquement (téléporteur, résonateur, neutraliseur).
+        for (const id of ['gadget_teleporter', 'gadget_resonator', 'gadget_nullifier']) {
+          const def = getGadgetById(id);
+          if (def) {
+            addGadget(fakeRun, def);
+            // Résonateur pré-chargé à 2/3 pour tester les deux chemins d'effet dès le début.
+            // Après 1 Ctrl+E il passe à 3/3 et soigne au lieu de booster l'attaque.
+            if (id === 'gadget_resonator') {
+              const inst = fakeRun.gadgets[fakeRun.gadgets.length - 1];
+              if (inst?.counter) inst.counter.value = 2;
+            }
+          }
+        }
+        run = fakeRun;
+      }
+
+      if (ctx.run?.heroes) {
         // Combat run-backed : héros, PV et ennemi lus depuis la run.
         const enemy = getNextEnemy(run);
         state = initCombat({
@@ -940,6 +1179,7 @@ export function createCombatScene() {
       estimator = null;
       state = null;
       context = null;
+      run = null;
       actions = [];
       boardX = 0;
       boardY = 0;
@@ -949,6 +1189,9 @@ export function createCombatScene() {
       duoNav = null;
       enemyNav = null;
       historyNav = null;
+      if (gadgetWidget) { gadgetWidget.unmount(); gadgetWidget = null; }
+      gadgetZoneEl = null;
+      gadgetZoneIndex = -1;
     },
   };
 }
